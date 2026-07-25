@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>CLIMA TÁCTICO // Centro de Riesgos</title>
+<meta name="description" content="Mapa táctico de riesgos meteorológicos y geológicos en México y el mundo: sismos, ciclones, incendios, inundaciones, volcanes y pronóstico a 7 días." />
+<link rel="stylesheet" href="./vendor/leaflet.css" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oxanium:wght@400;600;700;800&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#070b0a; --bg2:#0b1211; --panel:rgba(9,16,14,.86);
+    --line:rgba(70,224,160,.16); --line-strong:rgba(70,224,160,.34);
+    --amber:#ffb000; --amber-dim:#9d7212;
+    --green:#46e0a0; --cyan:#3fd0e0; --orange:#ff8c2b; --red:#ff4242; --violet:#b56cff;
+    --text:#cfe9df; --muted:#6f8a82;
+    --mono:'Share Tech Mono',ui-monospace,monospace;
+    --disp:'Oxanium',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
+    font-family:var(--mono);overflow:hidden;-webkit-text-size-adjust:100%}
+  #map{position:absolute;inset:0;background:var(--bg);z-index:1}
+
+  /* ---- ambient tactical framing (signature) ---- */
+  #fx{position:fixed;inset:0;pointer-events:none;z-index:400}
+  #fx .grid{position:absolute;inset:0;opacity:.5;
+    background:
+      linear-gradient(var(--line) 1px,transparent 1px) 0 0/64px 64px,
+      linear-gradient(90deg,var(--line) 1px,transparent 1px) 0 0/64px 64px;
+    mask-image:radial-gradient(120% 110% at 50% 45%,#000 55%,transparent 100%)}
+  #fx .scan{position:absolute;inset:0;mix-blend-mode:overlay;opacity:.5;
+    background:repeating-linear-gradient(0deg,rgba(70,224,160,.05) 0 2px,transparent 2px 4px);
+    animation:scan 9s linear infinite}
+  #fx .vig{position:absolute;inset:0;
+    box-shadow:inset 0 0 240px rgba(0,0,0,.85);
+    background:radial-gradient(130% 120% at 50% 40%,transparent 60%,rgba(0,0,0,.55))}
+  .bracket{position:fixed;width:26px;height:26px;border:2px solid var(--amber);z-index:401;
+    pointer-events:none;opacity:.7;filter:drop-shadow(0 0 4px rgba(255,176,0,.4))}
+  .bracket.tl{top:8px;left:8px;border-right:0;border-bottom:0}
+  .bracket.tr{top:8px;right:8px;border-left:0;border-bottom:0}
+  .bracket.bl{bottom:8px;left:8px;border-right:0;border-top:0}
+  .bracket.br{bottom:8px;right:8px;border-left:0;border-top:0}
+  @keyframes scan{to{background-position:0 64px}}
+
+  /* ---- top HUD ---- */
+  .hud-top{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:center;
+    gap:14px;padding:9px 46px;background:linear-gradient(180deg,rgba(7,11,10,.94),rgba(7,11,10,.55));
+    border-bottom:1px solid var(--line-strong);backdrop-filter:blur(3px)}
+  .brand{display:flex;align-items:center;gap:11px;min-width:0}
+  .dish{width:26px;height:26px;flex:0 0 auto;color:var(--amber)}
+  .dish .sweep{transform-origin:14px 14px;animation:spin 4s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .brand h1{font-family:var(--disp);font-weight:800;font-size:16px;letter-spacing:3px;
+    margin:0;color:var(--amber);text-shadow:0 0 10px rgba(255,176,0,.35);white-space:nowrap}
+  .brand h1 b{color:var(--green);font-weight:800}
+  .brand .sub{font-size:10px;color:var(--muted);letter-spacing:2px;margin-top:1px}
+  .clocks{margin-left:auto;display:flex;gap:18px;align-items:center;text-align:right}
+  .clk b{display:block;font-family:var(--disp);font-size:15px;color:var(--text);letter-spacing:1px}
+  .clk span{font-size:9px;color:var(--muted);letter-spacing:2px}
+  .refresh{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--green);
+    border:1px solid var(--line-strong);padding:5px 10px;border-radius:2px;white-space:nowrap}
+  .refresh .dot{width:7px;height:7px;border-radius:50%;background:var(--green);
+    box-shadow:0 0 8px var(--green);animation:blink 2s infinite}
+  @keyframes blink{50%{opacity:.25}}
+  .refresh.err{color:var(--red)} .refresh.err .dot{background:var(--red);box-shadow:0 0 8px var(--red)}
+
+  /* ---- side panels ---- */
+  .panel{position:fixed;z-index:500;width:268px;background:var(--panel);
+    border:1px solid var(--line-strong);backdrop-filter:blur(4px);
+    display:flex;flex-direction:column;max-height:calc(100vh - 96px)}
+  .panel-left{top:62px;left:10px}
+  .panel-right{top:62px;right:10px}
+  .panel h2{font-family:var(--disp);font-size:12px;letter-spacing:3px;color:var(--amber);
+    margin:0;padding:10px 12px;border-bottom:1px solid var(--line);display:flex;
+    align-items:center;justify-content:space-between;background:rgba(255,176,0,.05)}
+  .panel h2 .ct{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:1px}
+  .panel .body{overflow:auto;padding:6px 6px 8px}
+
+  .layer{display:flex;align-items:center;gap:9px;padding:7px 8px;border-radius:2px;cursor:pointer;
+    border:1px solid transparent}
+  .layer:hover{background:rgba(70,224,160,.06);border-color:var(--line)}
+  .layer.off{opacity:.4}
+  .sw{width:13px;height:13px;flex:0 0 auto;border-radius:2px;border:1px solid rgba(255,255,255,.25)}
+  .layer .nm{flex:1;min-width:0}
+  .layer .nm b{display:block;font-size:12px;color:var(--text);letter-spacing:.5px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .layer .nm span{font-size:9px;color:var(--muted);letter-spacing:1px}
+  .layer .cnt{font-family:var(--disp);font-size:13px;color:var(--green);min-width:28px;text-align:right}
+  .layer.live .cnt{color:var(--amber)}
+
+  .card{border-top:1px solid var(--line);padding:9px 11px}
+  .card .ch{font-family:var(--disp);font-size:11px;letter-spacing:2px;color:var(--amber);margin-bottom:6px}
+  .card .cnote{font-size:10px;color:var(--muted);line-height:1.55;margin-top:4px}
+  .card .cnote b{color:var(--text)}
+  .card .chips{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+  .chip{font-family:var(--disp);font-weight:700;font-size:11px;letter-spacing:1px;padding:2px 8px;
+    border:1px solid;border-radius:2px;background:rgba(255,255,255,.03)}
+  .card .kp{font-size:10px;color:var(--cyan);letter-spacing:1px;margin-left:auto}
+  .zone .zrow{display:flex;gap:6px;margin-bottom:6px}
+  .zone input{flex:1;min-width:0;background:#060a09;border:1px solid var(--line-strong);color:var(--text);
+    font-family:var(--mono);font-size:12px;padding:6px 8px;border-radius:2px}
+  .zone input:focus{outline:1px solid var(--amber)}
+  .zone button{background:var(--amber);color:#06100d;border:0;font-weight:700;padding:0 12px;
+    border-radius:2px;cursor:pointer;font-family:var(--disp)}
+  .advbig{font-family:var(--disp);font-weight:800;font-size:14px;letter-spacing:.5px;margin:2px 0 3px}
+  #zres a{color:var(--green)}
+  .fitem{display:block;padding:6px 0;border-bottom:1px solid var(--line);font-size:11px;
+    color:var(--text);text-decoration:none;line-height:1.4}
+  .fitem:hover{color:var(--amber)}
+  .fitem .fs{display:block;font-size:9px;color:var(--muted);margin-top:2px;letter-spacing:.5px}
+  .legend{padding:8px 10px;border-top:1px solid var(--line);font-size:10px;color:var(--muted);line-height:1.7}
+  .legend .row{display:flex;align-items:center;gap:7px}
+  .legend i{width:9px;height:9px;border-radius:50%;display:inline-block}
+
+  /* ---- threat board ---- */
+  .threat{display:block;width:100%;text-align:left;background:none;border:0;cursor:pointer;
+    padding:8px 9px;border-bottom:1px solid var(--line);color:var(--text);font-family:var(--mono)}
+  .threat:hover{background:rgba(255,176,0,.07)}
+  .threat .top{display:flex;align-items:center;gap:7px;margin-bottom:3px}
+  .threat .tag{font-size:9px;font-family:var(--disp);font-weight:700;letter-spacing:1px;
+    padding:1px 6px;border-radius:2px;color:#06100d}
+  .threat .sev{margin-left:auto;font-family:var(--disp);font-weight:800;font-size:14px}
+  .threat .ttl{font-size:12px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .threat .meta{font-size:9px;color:var(--muted);letter-spacing:.5px;margin-top:2px}
+  .empty{padding:18px 12px;font-size:11px;color:var(--muted);text-align:center;line-height:1.6}
+
+  /* ---- bottom ticker ---- */
+  .hud-bottom{position:fixed;bottom:0;left:0;right:0;z-index:500;height:26px;display:flex;
+    align-items:center;gap:12px;padding:0 46px;background:linear-gradient(0deg,rgba(7,11,10,.95),rgba(7,11,10,.4));
+    border-top:1px solid var(--line);font-size:10px;color:var(--muted);overflow:hidden;letter-spacing:1px}
+  .hud-bottom .tk{white-space:nowrap;animation:tick 48s linear infinite}
+  @keyframes tick{from{transform:translateX(40vw)}to{transform:translateX(-100%)}}
+  .hud-bottom b{color:var(--green)}
+
+  /* ---- panel collapse toggles (mobile) ---- */
+  .ptog{display:none;position:fixed;z-index:501;bottom:34px;font-family:var(--disp);font-weight:700;
+    font-size:11px;letter-spacing:2px;color:var(--amber);background:var(--panel);
+    border:1px solid var(--line-strong);padding:9px 13px;border-radius:2px}
+  .ptog.l{left:10px} .ptog.r{right:10px}
+
+  /* ---- Leaflet overrides ---- */
+  .leaflet-container{background:var(--bg);font-family:var(--mono)}
+  .leaflet-control-zoom a{background:var(--panel)!important;color:var(--amber)!important;
+    border:1px solid var(--line-strong)!important}
+  .leaflet-control-attribution{background:rgba(7,11,10,.7)!important;color:var(--muted)!important;font-size:9px}
+  .leaflet-control-attribution a{color:var(--green)!important}
+  .leaflet-popup-content-wrapper{background:var(--panel);color:var(--text);border:1px solid var(--amber);
+    border-radius:2px;box-shadow:0 0 22px rgba(0,0,0,.7)}
+  .leaflet-popup-tip{background:var(--amber)}
+  .leaflet-popup-content{margin:11px 13px;font-family:var(--mono);font-size:12px;line-height:1.55}
+  .pp h3{font-family:var(--disp);font-size:14px;letter-spacing:1.5px;margin:0 0 6px;color:var(--amber)}
+  .pp .k{color:var(--muted)} .pp b{color:var(--text)}
+  .pp a{color:var(--green)}
+  .pp .ptag{display:inline-block;font-family:var(--disp);font-weight:700;font-size:10px;letter-spacing:1px;
+    padding:1px 7px;border-radius:2px;color:#06100d;margin-bottom:6px}
+  .fc{display:flex;gap:3px;margin-top:8px;align-items:flex-end}
+  .fc .d{flex:1;text-align:center}
+  .fc .bar{margin:0 auto;width:11px;background:var(--cyan);border-radius:1px 1px 0 0;min-height:2px;
+    box-shadow:0 0 6px rgba(63,208,224,.4)}
+  .fc .dl{font-size:8px;color:var(--muted);margin-top:3px}
+  .fc .mm{font-size:8px;color:var(--cyan)}
+
+  /* pulse marker for live, notable events */
+  .ping{position:relative}
+  .ping .core{position:absolute;left:50%;top:50%;width:8px;height:8px;margin:-4px 0 0 -4px;
+    border-radius:50%;background:var(--amber);box-shadow:0 0 8px var(--amber)}
+  .ping .ring{position:absolute;left:50%;top:50%;width:8px;height:8px;margin:-4px 0 0 -4px;
+    border-radius:50%;border:2px solid var(--amber);animation:ping 2.4s ease-out infinite}
+  .ping.tsu .core{background:var(--cyan);box-shadow:0 0 9px var(--cyan)}
+  .ping.tsu .ring{border-color:var(--cyan)}
+  @keyframes ping{0%{opacity:.9;transform:scale(1)}100%{opacity:0;transform:scale(7)}}
+  .storm{font-size:18px;color:var(--cyan);text-shadow:0 0 8px rgba(63,208,224,.6);animation:spin 3.5s linear infinite}
+
+  @media (prefers-reduced-motion: reduce){
+    #fx .scan,.dish .sweep,.ping .ring,.storm,.hud-bottom .tk,.refresh .dot{animation:none}
+  }
+  @media (max-width:820px){
+    .hud-top{padding:7px 16px;gap:8px}
+    .brand .sub{display:none}
+    .clocks{gap:10px}
+    .panel{max-height:46vh;width:min(86vw,300px);transition:transform .25s}
+    .panel-left.hide{transform:translateX(-118%)}
+    .panel-right.hide{transform:translateX(118%)}
+    .ptog{display:block}
+    .bracket{display:none}
+  }
+</style>
+</head>
+<body>
+<div id="map"></div>
+
+<div id="fx"><div class="grid"></div><div class="scan"></div><div class="vig"></div></div>
+<div class="bracket tl"></div><div class="bracket tr"></div><div class="bracket bl"></div><div class="bracket br"></div>
+
+<header class="hud-top">
+  <div class="brand">
+    <svg class="dish" viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.6">
+      <circle cx="14" cy="14" r="11" opacity=".4"/><circle cx="14" cy="14" r="6.5" opacity=".4"/>
+      <circle cx="14" cy="14" r="1.6" fill="currentColor" stroke="none"/>
+      <path class="sweep" d="M14 14 L14 3 A11 11 0 0 1 24 11 Z" fill="currentColor" opacity=".22" stroke="none"/>
+    </svg>
+    <div>
+      <h1>CLIMA <b>TÁCTICO</b></h1>
+      <div class="sub">CENTRO DE RIESGOS · MX + GLOBAL</div>
+    </div>
+  </div>
+  <div class="clocks">
+    <div class="clk"><b id="clk-mx">--:--:--</b><span>CDMX · UTC-6</span></div>
+    <div class="clk"><b id="clk-utc">--:--:--</b><span>ZULU · UTC</span></div>
+    <div class="refresh" id="status"><span class="dot"></span><span id="status-tx">INICIANDO…</span></div>
+  </div>
+</header>
+
+<aside class="panel panel-left" id="pleft">
+  <h2>CAPAS <span class="ct" id="lastsync">SYNC —</span></h2>
+  <div class="body">
+    <div class="card zone">
+      <div class="ch">CONSOLA DE ZONA</div>
+      <div class="zrow"><input id="zq" placeholder="Ciudad, estado o país…" autocomplete="off"/><button id="zgo" aria-label="Consultar">▶</button></div>
+      <div id="zres" class="cnote">Escribe un destino para ver su nivel de riesgo oficial, avisos y señales cercanas.</div>
+    </div>
+    <div id="layers"></div>
+    <div class="legend" id="legend"></div>
+    <div class="card" id="space"></div>
+    <div class="card" id="vdm"></div>
+    <div class="card" id="feed"></div>
+  </div>
+</aside>
+
+<aside class="panel panel-right hide" id="pright">
+  <h2>AMENAZAS ACTIVAS <span class="ct" id="threat-ct">0</span></h2>
+  <div class="body" id="threats"><div class="empty">Cargando inteligencia…</div></div>
+</aside>
+
+<button class="ptog l" id="tog-l">CAPAS</button>
+<button class="ptog r" id="tog-r">AMENAZAS</button>
+
+<footer class="hud-bottom">
+  <div class="tk" id="ticker">INICIANDO SISTEMA…</div>
+</footer>
+
+<script src="./vendor/leaflet.js"></script>
+<script>
+"use strict";
+// ============================ CONFIG ============================
+const C = { green:'#46e0a0', amber:'#ffb000', orange:'#ff8c2b', red:'#ff4242',
+            cyan:'#3fd0e0', violet:'#b56cff', muted:'#6f8a82' };
+const LIVE_REFRESH = 60000; // 1 min para capas en vivo
+const USGS = 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson';
+const NWS  = 'https://api.weather.gov/alerts/active?status=actual&message_type=alert';
+
+// ============================ MAPA ============================
+const map = L.map('map',{zoomControl:true,worldCopyJump:true,minZoom:2,maxZoom:13,
+  attributionControl:true}).setView([23.6,-102.5],5);
+map.zoomControl.setPosition('bottomright');
+
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png',{
+  attribution:'&copy; OpenStreetMap · &copy; CARTO · datos: USGS, NOAA, NASA FIRMS, Open-Meteo, GDACS',
+  subdomains:'abcd', maxZoom:19
+}).addTo(map);
+const labels = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png',{
+  subdomains:'abcd', maxZoom:19, opacity:.55 }).addTo(map);
+
+// ============================ GRUPOS DE CAPAS ============================
+const G = {
+  eq:      L.layerGroup().addTo(map),
+  alerts:  L.layerGroup(),
+  storms:  L.layerGroup().addTo(map),
+  gdacs:   L.layerGroup().addTo(map),
+  fires:   L.layerGroup().addTo(map),
+  forecast:L.layerGroup().addTo(map),
+  air:     L.layerGroup().addTo(map),
+  security:L.layerGroup().addTo(map),
+  volcano: L.layerGroup().addTo(map),
+};
+const counts = {}; let threats = []; let cdmxAir = null; let advisories = {};
+
+// ============================ DEFINICIÓN DE CAPAS (UI) ============================
+const LAYERS = [
+  {id:'eq',      name:'Sismos',           sub:'USGS · EN VIVO',      color:C.amber,  live:true,  group:G.eq},
+  {id:'alerts',  name:'Alertas NWS (EE.UU.)',sub:'weather.gov · VIVO',color:C.red,    live:true,  group:G.alerts, off:true},
+  {id:'storms',  name:'Ciclones / Huracanes',sub:'NOAA NHC',         color:C.cyan,   group:G.storms},
+  {id:'gdacs',   name:'Inundación · multi',  sub:'GDACS',            color:C.orange, group:G.gdacs},
+  {id:'fires',   name:'Incendios',           sub:'NASA FIRMS · 24 h',color:C.red,    group:G.fires},
+  {id:'forecast',name:'Pronóstico 7 días',   sub:'Open-Meteo',       color:C.green,  group:G.forecast},
+  {id:'air',     name:'Calidad del aire',     sub:'Open-Meteo · US AQI',color:'#cda2ff',group:G.air},
+  {id:'security',name:'Seguridad (noticias)',  sub:'GDELT · señales 24 h',color:'#ff5c8a',group:G.security},
+  {id:'volcano', name:'Volcanes',            sub:'CENAPRED / GVP',   color:C.violet, group:G.volcano},
+];
+
+function buildLayerUI(){
+  const box = document.getElementById('layers'); box.innerHTML='';
+  LAYERS.forEach(l=>{
+    const on = !l.off;
+    const el = document.createElement('div');
+    el.className = 'layer'+(l.live?' live':'')+(on?'':' off');
+    el.innerHTML = `<span class="sw" style="background:${l.color}"></span>
+      <span class="nm"><b>${l.name}</b><span>${l.sub}</span></span>
+      <span class="cnt" id="cnt-${l.id}">${l.live?'·':'—'}</span>`;
+    el.onclick = ()=>{
+      const active = map.hasLayer(l.group);
+      if(active){ map.removeLayer(l.group); el.classList.add('off'); }
+      else{ map.addLayer(l.group); el.classList.remove('off'); }
+    };
+    box.appendChild(el);
+    if(l.off) map.removeLayer(l.group);
+  });
+  document.getElementById('legend').innerHTML =
+    `<div class="row"><i style="background:${C.green}"></i>Tranquilo / leve</div>
+     <div class="row"><i style="background:${C.amber}"></i>Vigilancia</div>
+     <div class="row"><i style="background:${C.orange}"></i>Riesgo</div>
+     <div class="row"><i style="background:${C.red}"></i>Severo / crítico</div>
+     <div class="row"><i style="background:${C.cyan}"></i>Agua / tsunami / ciclón</div>`;
+}
+
+// ============================ HELPERS ============================
+function pingIcon(cls=''){ return L.divIcon({className:'',html:
+  `<div class="ping ${cls}"><div class="ring"></div><div class="core"></div></div>`,
+  iconSize:[8,8], iconAnchor:[4,4]}); }
+
+function eqColor(m){ return m>=6?C.red : m>=4.5?C.orange : m>=2.5?C.amber : C.green; }
+function fmtAgo(ms){ const s=(Date.now()-ms)/1000;
+  if(s<3600) return Math.round(s/60)+' min'; if(s<86400) return Math.round(s/3600)+' h';
+  return Math.round(s/86400)+' d'; }
+function esc(s){ return String(s==null?'':s).replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c])); }
+function fmtn(v){ return v==null?'—':(Math.round(v*10)/10); }
+
+// ============================ SISMOS (EN VIVO) ============================
+async function loadEarthquakes(){
+  const r = await fetch(USGS,{cache:'no-store'});
+  const gj = await r.json();
+  G.eq.clearLayers();
+  let n=0;
+  gj.features.forEach(f=>{
+    const [lon,lat,depth] = f.geometry.coordinates;
+    const p = f.properties; const m = p.mag||0; const tsu = p.tsunami===1;
+    const recent = (Date.now()-p.time) < 3600000;
+    const cm = L.circleMarker([lat,lon],{radius:Math.max(3,m*1.9),color:tsu?C.cyan:eqColor(m),
+      weight:1.4, fillColor:eqColor(m), fillOpacity:.35});
+    cm.bindPopup(eqPopup(p,depth,tsu,m));
+    cm.addTo(G.eq); n++;
+    if(tsu || m>=4.5 || recent){
+      L.marker([lat,lon],{icon:pingIcon(tsu?'tsu':'')}).addTo(G.eq).bindPopup(eqPopup(p,depth,tsu,m));
+    }
+    if(m>=4.5 || tsu){
+      threats.push({score:(tsu?100:0)+m*10, kind:'SISMO', color:eqColor(m), sev:m.toFixed(1),
+        title:(tsu?'⚠ TSUNAMI · ':'')+esc(p.place||'Sismo'), meta:fmtAgo(p.time)+' · prof '+Math.round(depth)+' km',
+        lat, lon});
+    }
+  });
+  counts.eq=n; document.getElementById('cnt-eq').textContent=n;
+}
+function eqPopup(p,depth,tsu,m){
+  return `<div class="pp"><span class="ptag" style="background:${eqColor(m)}">SISMO M${m.toFixed(1)}</span>
+    ${tsu?'<span class="ptag" style="background:'+C.cyan+';margin-left:5px">AVISO TSUNAMI</span>':''}
+    <h3>${esc(p.place||'Evento sísmico')}</h3>
+    <div><span class="k">Magnitud:</span> <b>${m.toFixed(1)}</b></div>
+    <div><span class="k">Profundidad:</span> <b>${Math.round(depth)} km</b></div>
+    <div><span class="k">Hace:</span> <b>${fmtAgo(p.time)}</b></div>
+    <div style="margin-top:6px"><a href="${p.url}" target="_blank" rel="noopener">Detalle USGS ↗</a></div></div>`;
+}
+
+// ============================ ALERTAS NWS (EN VIVO) ============================
+async function loadAlerts(){
+  try{
+    const r = await fetch(NWS,{headers:{'Accept':'application/geo+json'},cache:'no-store'});
+    const gj = await r.json(); G.alerts.clearLayers(); let n=0;
+    L.geoJSON(gj,{
+      filter:f=>f.geometry, // solo las que tienen polígono
+      style:f=>{const sev=(f.properties.severity||'').toLowerCase();
+        const c = sev==='extreme'?C.red:sev==='severe'?C.orange:C.amber;
+        return {color:c,weight:1.4,fillColor:c,fillOpacity:.12};},
+      onEachFeature:(f,ly)=>{const p=f.properties; n++;
+        ly.bindPopup(`<div class="pp"><span class="ptag" style="background:${C.red}">ALERTA NWS</span>
+          <h3>${esc(p.event||'Alerta')}</h3>
+          <div><span class="k">Severidad:</span> <b>${esc(p.severity||'-')}</b></div>
+          <div><span class="k">Zona:</span> <b>${esc((p.areaDesc||'').slice(0,80))}</b></div></div>`);}
+    }).addTo(G.alerts);
+    counts.alerts=n; document.getElementById('cnt-alerts').textContent=n;
+  }catch(e){ /* opcional, silenciar */ }
+}
+
+// ============================ CAPAS HORNEADAS ============================
+async function loadBaked(){
+  let man={};
+  try{ man = await (await fetch('./data/manifest.json',{cache:'no-store'})).json(); }catch(e){}
+  document.getElementById('lastsync').textContent = man.generated
+    ? 'SYNC '+man.generated.slice(5,16).replace('T',' ')+'Z' : 'SYNC —';
+
+  await Promise.all([
+    bake('storms','storms.geojson', stormLayer),
+    bake('gdacs','gdacs.geojson', gdacsLayer),
+    bake('fires','fires.geojson', fireLayer),
+    bake('forecast','forecast.geojson', forecastLayer),
+    bake('air','airquality.geojson', airLayer),
+    bake('security','security.geojson', securityLayer),
+    bake('volcano','volcanoes.geojson', volcanoLayer),
+  ]);
+  renderVdM(); // usa la calidad del aire de CDMX ya cargada
+  try{ advisories = (await (await fetch('./data/advisories.json',{cache:'no-store'})).json()).data || {}; }catch(e){}
+  await loadFeed();
+
+  // Clima espacial: leer archivo horneado y, si se puede, refrescar en vivo desde la NOAA
+  let sp=null;
+  try{ sp = await (await fetch('./data/space.json',{cache:'no-store'})).json(); }catch(e){}
+  try{
+    const live = await (await fetch('https://services.swpc.noaa.gov/products/noaa-scales.json',{cache:'no-store'})).json();
+    const cur = live['0']||{};
+    if(cur.R){ sp = sp||{}; ['R','S','G'].forEach(k=>{ const x=cur[k]||{};
+      sp[k]={scale:parseInt(x.Scale||0),text:x.Text||'none'}; }); }
+  }catch(e){ /* CORS o red: se queda con el horneado */ }
+  renderSpace(sp); spaceThreats(sp);
+}
+async function bake(id,file,fn){
+  try{
+    const gj = await (await fetch('./data/'+file,{cache:'no-store'})).json();
+    G[id].clearLayers(); let n=0;
+    (gj.features||[]).forEach(f=>{ const m=fn(f); if(m){m.addTo(G[id]); n++;} });
+    counts[id]=n; const el=document.getElementById('cnt-'+id);
+    if(el) el.textContent = n||'0';
+  }catch(e){ const el=document.getElementById('cnt-'+id); if(el) el.textContent='—'; }
+}
+
+function stormLayer(f){
+  const [lon,lat]=f.geometry.coordinates, p=f.properties;
+  const m=L.marker([lat,lon],{icon:L.divIcon({className:'',html:'<div class="storm">🌀</div>',
+    iconSize:[20,20],iconAnchor:[10,10]})});
+  m.bindPopup(`<div class="pp"><span class="ptag" style="background:${C.cyan}">${esc(p.class_label||'CICLÓN')}</span>
+    <h3>${esc(p.name)}</h3>
+    <div><span class="k">Vientos:</span> <b>${esc(p.intensity_kt)} kt</b></div>
+    <div><span class="k">Presión:</span> <b>${esc(p.pressure_mb)} mb</b></div>
+    <div><span class="k">Movimiento:</span> <b>${esc(p.movement)}</b></div></div>`);
+  threats.push({score:200+ (parseFloat(p.intensity_kt)||0), kind:'CICLÓN', color:C.cyan,
+    sev:'TC', title:esc(p.name+' · '+(p.class_label||'')), meta:esc(p.intensity_kt)+' kt', lat, lon});
+  return m;
+}
+function gdacsLayer(f){
+  const [lon,lat]=f.geometry.coordinates, p=f.properties;
+  const lvl=(p.alertlevel||'Green').toLowerCase();
+  const c = lvl==='red'?C.red : lvl==='orange'?C.orange : C.green;
+  const m=L.circleMarker([lat,lon],{radius:7,color:c,weight:1.6,fillColor:c,fillOpacity:.3});
+  m.bindPopup(`<div class="pp"><span class="ptag" style="background:${c}">${esc(p.type_label||'EVENTO')} · ${esc(p.alertlevel)}</span>
+    <h3>${esc((p.name||'Evento').slice(0,70))}</h3>
+    <div><span class="k">País:</span> <b>${esc(p.country||'-')}</b></div>
+    ${p.url?`<div style="margin-top:6px"><a href="${esc(p.url)}" target="_blank" rel="noopener">Reporte GDACS ↗</a></div>`:''}</div>`);
+  if(lvl==='orange'||lvl==='red'){
+    threats.push({score:(lvl==='red'?160:120), kind:(p.type_label||'GDACS').toUpperCase().slice(0,8),
+      color:c, sev:lvl==='red'?'!!':'!', title:esc((p.name||'').slice(0,42)), meta:esc(p.country||''), lat, lon});
+  }
+  return m;
+}
+function fireLayer(f){
+  const [lon,lat]=f.geometry.coordinates, p=f.properties; const frp=p.frp||0;
+  const c = frp>=50?C.red : frp>=15?C.orange : C.amber;
+  const m=L.circleMarker([lat,lon],{radius:Math.min(8,2+frp/12),color:c,weight:.8,
+    fillColor:c,fillOpacity:.55});
+  m.bindPopup(`<div class="pp"><span class="ptag" style="background:${c}">INCENDIO</span>
+    <h3>Foco de calor</h3>
+    <div><span class="k">Potencia (FRP):</span> <b>${frp.toFixed(1)} MW</b></div>
+    <div><span class="k">Confianza:</span> <b>${esc(p.confidence)}</b></div>
+    <div><span class="k">Detección:</span> <b>${esc(p.acq_date)} ${esc(p.acq_time)} UTC</b></div></div>`);
+  return m;
+}
+const WMO = {0:'Despejado',1:'Mayormente despejado',2:'Parcial nublado',3:'Nublado',45:'Niebla',
+  48:'Niebla',51:'Llovizna',53:'Llovizna',55:'Llovizna fuerte',61:'Lluvia ligera',63:'Lluvia',
+  65:'Lluvia fuerte',71:'Nieve',73:'Nieve',75:'Nieve fuerte',80:'Chubascos',81:'Chubascos',
+  82:'Chubascos violentos',95:'Tormenta',96:'Tormenta granizo',99:'Tormenta severa'};
+function forecastLayer(f){
+  const [lon,lat]=f.geometry.coordinates, p=f.properties;
+  const cols=[C.green,C.amber,C.orange,C.red]; const c=cols[p.level||0];
+  const m=L.circleMarker([lat,lon],{radius:6,color:c,weight:1.6,fillColor:c,fillOpacity:.25});
+  const days=(p.days||[]);
+  const maxR=Math.max(1,...days.map(d=>d.rain||0));
+  const bars=days.map(d=>{
+    const h=Math.round(((d.rain||0)/maxR)*44);
+    const dl=(d.date||'').slice(8,10)+'/'+(d.date||'').slice(5,7);
+    return `<div class="d"><div class="bar" style="height:${h}px"></div>
+      <div class="mm">${Math.round(d.rain||0)}</div><div class="dl">${dl}</div></div>`;}).join('');
+  m.bindPopup(`<div class="pp"><span class="ptag" style="background:${c}">${esc(p.level_label||'')}</span>
+    <h3>${esc(p.name)}</h3>
+    <div><span class="k">Lluvia máx 7d:</span> <b>${p.max_rain_mm} mm</b></div>
+    <div><span class="k">Ráfaga máx 7d:</span> <b>${p.max_gust_kmh} km/h</b></div>
+    <div class="k" style="margin-top:7px;font-size:10px">LLUVIA DIARIA (mm)</div>
+    <div class="fc">${bars}</div></div>`,{maxWidth:300});
+  if((p.level||0)>=2){
+    threats.push({score:40+(p.level*15), kind:'CLIMA', color:c, sev:'7d',
+      title:esc(p.name)+' · '+esc(p.level_label),
+      meta:p.max_rain_mm+'mm · '+p.max_gust_kmh+'km/h', lat, lon});
+  }
+  return m;
+}
+const AQI_COLS=['#46e0a0','#ffd23f','#ff8c2b','#ff4242','#b56cff','#8b1a1a'];
+function airLayer(f){
+  const [lon,lat]=f.geometry.coordinates, p=f.properties; const c=p.color||C.muted;
+  if(p.name==='Ciudad de Mexico') cdmxAir=f;
+  const m=L.circleMarker([lat,lon],{radius:7,color:c,weight:1.6,fillColor:c,fillOpacity:.4});
+  m.bindPopup(`<div class="pp"><span class="ptag" style="background:${c}">AIRE · ${esc(p.level_label)}</span>
+    <h3>${esc(p.name)}</h3>
+    <div><span class="k">US AQI:</span> <b>${p.us_aqi==null?'—':p.us_aqi}</b></div>
+    <div><span class="k">PM2.5:</span> <b>${fmtn(p.pm2_5)} µg/m³</b></div>
+    <div><span class="k">PM10:</span> <b>${fmtn(p.pm10)} µg/m³</b></div>
+    <div><span class="k">Ozono:</span> <b>${fmtn(p.ozone)} µg/m³</b></div></div>`);
+  if((p.level||0)>=2){
+    threats.push({score:60+(p.us_aqi||0)/2, kind:'AIRE', color:c, sev:(p.us_aqi==null?'?':p.us_aqi),
+      title:esc(p.name)+' · '+esc(p.level_label), meta:'PM2.5 '+fmtn(p.pm2_5)+' µg/m³', lat, lon});
+  }
+  return m;
+}
+
+function renderSpace(sp){
+  if(!sp||!sp.R){ document.getElementById('space').innerHTML=''; return; }
+  const chip=(lbl,scale)=>{const c=AQI_COLS[Math.min(scale,5)];
+    return `<span class="chip" style="border-color:${c};color:${c}">${lbl}${scale}</span>`;};
+  const flare=sp.flare&&sp.flare.class?('Última llamarada: '+esc(sp.flare.class)):'Sin llamarada relevante';
+  const kp=sp.kp?('Kp '+Math.round(sp.kp.value)):'Kp —';
+  document.getElementById('space').innerHTML=
+    `<div class="ch">CLIMA ESPACIAL</div>
+     <div class="chips">${chip('R',sp.R.scale)}${chip('S',sp.S.scale)}${chip('G',sp.G.scale)}
+        <span class="kp">${kp}</span></div>
+     <div class="cnote">${flare}</div>
+     <div class="cnote">R = apagones de radio / llamaradas · S = radiación solar · G = tormenta geomagnética (0 = ninguno)</div>`;
+}
+function spaceThreats(sp){
+  if(!sp||!sp.R) return;
+  if(sp.R.scale>=1) threats.push({score:150+sp.R.scale*20, kind:'SOLAR', color:AQI_COLS[Math.min(sp.R.scale,5)],
+    sev:'R'+sp.R.scale, title:'Apagón de radio / llamarada'+(sp.flare&&sp.flare.class?' '+esc(sp.flare.class):''),
+    meta:esc(sp.R.text), lat:0, lon:0});
+  if(sp.S.scale>=1) threats.push({score:140+sp.S.scale*20, kind:'RADIACIÓN', color:AQI_COLS[Math.min(sp.S.scale,5)],
+    sev:'S'+sp.S.scale, title:'Tormenta de radiación solar', meta:esc(sp.S.text), lat:0, lon:0});
+  const kpv = sp.kp?sp.kp.value:0;
+  if(sp.G.scale>=1 || kpv>=5) threats.push({score:130+sp.G.scale*20, kind:'GEOMAG', color:AQI_COLS[Math.min(Math.max(sp.G.scale,1),5)],
+    sev:'G'+sp.G.scale, title:'Tormenta geomagnética', meta:'Kp '+Math.round(kpv), lat:0, lon:0});
+}
+
+const HNC={1:['Amarillo','#ffd23f','5 y 6'],2:['Rosa','#ff6fb5','7 y 8'],
+  3:['Rojo','#ff4242','3 y 4'],4:['Verde','#46e0a0','1 y 2'],5:['Azul','#5b9dff','9 y 0']};
+function renderVdM(){
+  const wd=new Date().toLocaleString('en-US',{timeZone:'America/Mexico_City',weekday:'short'});
+  const d={Mon:1,Tue:2,Wed:3,Thu:4,Fri:5,Sat:6,Sun:0}[wd];
+  let hnc;
+  if(HNC[d]) hnc=`<b style="color:${HNC[d][1]}">${HNC[d][0]}</b> · placas terminación <b>${HNC[d][2]}</b><br><span style="font-size:9px">(holograma 1 y 2; exentos 0 y 00)</span>`;
+  else if(d===6) hnc='Sabatino: aplica según holograma — consulta el calendario oficial';
+  else hnc='Domingo: <b>no aplica</b>';
+  let air='Calidad del aire: <b>—</b>', cont=false;
+  if(cdmxAir){ const p=cdmxAir.properties;
+    air=`Calidad del aire: <b style="color:${p.color}">${esc(p.level_label)}</b> (US AQI ${p.us_aqi==null?'—':p.us_aqi})`;
+    cont=(p.level>=3); }
+  const contLine = cont
+    ? `<div class="cnote" style="color:${C.red}">⚠ Aire muy malo: posible contingencia / doble no circula. Verifica la CAMe.</div>`
+    : `<div class="cnote">Doble No Circula solo aplica durante contingencia declarada por la CAMe.</div>`;
+  document.getElementById('vdm').innerHTML=
+    `<div class="ch">VALLE DE MÉXICO</div>
+     <div class="cnote"><b style="color:${C.amber}">HOY NO CIRCULA</b><br>${hnc}</div>
+     <div class="cnote">${air}</div>${contLine}
+     <div class="cnote"><a href="https://www.aire.cdmx.gob.mx" target="_blank" rel="noopener" style="color:${C.green}">aire.cdmx.gob.mx ↗</a> · <a href="https://www.gob.mx/comisionambiental" target="_blank" rel="noopener" style="color:${C.green}">CAMe ↗</a></div>`;
+}
+
+// ---- SEGURIDAD (señales de noticias) ----
+function securityLayer(f){
+  const [lon,lat]=f.geometry.coordinates, p=f.properties; const cnt=p.count||1;
+  const c = cnt>=8?'#ff2d6f' : cnt>=3?'#ff5c8a' : '#e08aa6';
+  const m=L.circleMarker([lat,lon],{radius:Math.min(9,3+cnt/2),color:c,weight:1,fillColor:c,fillOpacity:.5});
+  const gnews='https://news.google.com/search?q='+encodeURIComponent((p.name||'')+' seguridad')+'&hl=es-419';
+  m.bindPopup(`<div class="pp"><span class="ptag" style="background:${c}">SEGURIDAD · NOTICIAS</span>
+    <h3>${esc(p.name||'Señal')}</h3>
+    <div><span class="k">Menciones (24 h):</span> <b>${cnt}</b></div>
+    <div class="k" style="font-size:10px;margin-top:4px">Señal de cobertura noticiosa, no un incidente confirmado.</div>
+    <div style="margin-top:6px"><a href="${gnews}" target="_blank" rel="noopener">Ver noticias ↗</a></div></div>`);
+  if(cnt>=3) threats.push({score:70+cnt, kind:'SEGURIDAD', color:c, sev:cnt,
+    title:esc(p.name||'Señal de seguridad'), meta:'menciones en noticias 24 h', lat, lon});
+  return m;
+}
+
+// ---- FEED de titulares ----
+function fmtDate(s){
+  if(!s) return '';
+  if(/^\d{8}T/.test(s)) return s.slice(0,4)+'-'+s.slice(4,6)+'-'+s.slice(6,8); // GDELT
+  const d=new Date(s); return isNaN(d)?String(s).slice(0,16):d.toLocaleDateString('es-MX',{month:'short',day:'numeric'});
+}
+async function loadFeed(){
+  try{
+    const fd=await (await fetch('./data/security_feed.json',{cache:'no-store'})).json();
+    const items=(fd.items||[]).slice(0,15);
+    document.getElementById('feed').innerHTML='<div class="ch">FEED DE SEGURIDAD</div>'+
+      (items.length ? items.map(i=>`<a class="fitem" href="${esc(i.url)}" target="_blank" rel="noopener">${esc((i.title||'').slice(0,95))}<span class="fs">${esc(i.source||'')} · ${esc(fmtDate(i.date))} · señal, verifica</span></a>`).join('')
+        : '<div class="cnote">Sin señales por ahora. Se llena en la próxima actualización.</div>');
+  }catch(e){ document.getElementById('feed').innerHTML='<div class="ch">FEED DE SEGURIDAD</div><div class="cnote">Pendiente de la primera actualización.</div>'; }
+}
+
+// ---- CONSOLA DE ZONA ----
+const ADV_LABEL={0:['Sin dato oficial',C.muted],1:['NIVEL 1 · Precaución normal',C.green],
+  2:['NIVEL 2 · Mayor precaución','#ffd23f'],3:['NIVEL 3 · Reconsiderar viaje',C.orange],
+  4:['NIVEL 4 · No viajar',C.red]};
+function haversine(la1,lo1,la2,lo2){const R=6371,r=x=>x*Math.PI/180;
+  const dLa=r(la2-la1),dLo=r(lo2-lo1);
+  const s=Math.sin(dLa/2)**2+Math.cos(r(la1))*Math.cos(r(la2))*Math.sin(dLo/2)**2;
+  return 2*R*Math.asin(Math.sqrt(s));}
+async function queryZone(){
+  const q=document.getElementById('zq').value.trim(); if(!q) return;
+  const res=document.getElementById('zres'); res.textContent='Buscando…';
+  try{
+    const g=await (await fetch('https://geocoding-api.open-meteo.com/v1/search?name='+encodeURIComponent(q)+'&count=1&language=es')).json();
+    const r=(g.results||[])[0];
+    if(!r){ res.textContent='No encontré ese lugar. Prueba otro nombre.'; return; }
+    const lat=r.latitude, lon=r.longitude, cc=r.country_code;
+    map.flyTo([lat,lon],7,{duration:.8});
+    L.popup().setLatLng([lat,lon]).setContent(`<div class="pp"><h3>${esc(r.name)}</h3><div class="k">${esc(r.admin1||'')} · ${esc(r.country||'')}</div></div>`).openOn(map);
+    const adv=advisories[cc]||{level:0};
+    const [albl,acol]=ADV_LABEL[adv.level||0];
+    let near=0; G.security.eachLayer(l=>{ if(l.getLatLng){const ll=l.getLatLng();
+      if(haversine(lat,lon,ll.lat,ll.lng)<=180) near++; }});
+    const gnews='https://news.google.com/search?q='+encodeURIComponent(r.name+' seguridad OR bloqueo OR asalto')+'&hl=es-419&gl=MX';
+    res.innerHTML=`<div class="advbig" style="color:${acol}">${esc(albl)}</div>
+      ${adv.message?`<div class="cnote">${esc(adv.message.slice(0,180))}</div>`:''}
+      <div class="cnote"><b style="color:${near?C.orange:C.green}">${near}</b> señal(es) de seguridad en noticias cerca (24 h) · <b>no confirmadas</b></div>
+      <div class="cnote"><a href="${gnews}" target="_blank" rel="noopener">Noticias de ${esc(r.name)} ↗</a>${adv.source?` · <a href="${esc(adv.source)}" target="_blank" rel="noopener">Aviso oficial ↗</a>`:''}</div>
+      <div class="cnote" style="font-size:9px">Riesgo: travel-advisory.info (varios gobiernos). Verifica siempre los avisos oficiales de tu país.</div>`;
+  }catch(e){ res.textContent='Error de red al consultar. Intenta de nuevo.'; }
+}
+
+function volcanoLayer(f){
+  const [lon,lat]=f.geometry.coordinates, p=f.properties;
+  const m=L.marker([lat,lon],{icon:L.divIcon({className:'',
+    html:`<div style="width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:13px solid ${C.violet};filter:drop-shadow(0 0 4px rgba(181,108,255,.6))"></div>`,
+    iconSize:[14,13],iconAnchor:[7,13]})});
+  m.bindPopup(`<div class="pp"><span class="ptag" style="background:${C.violet}">VOLCÁN</span>
+    <h3>${esc(p.name)}</h3>
+    <div><span class="k">País:</span> <b>${esc(p.country)}</b></div>
+    <div class="k" style="margin-top:5px">${esc(p.note||'')}</div>
+    <div style="margin-top:6px"><a href="${esc(p.url)}" target="_blank" rel="noopener">Fuente oficial ↗</a></div></div>`);
+  return m;
+}
+
+// ============================ THREAT BOARD ============================
+function renderThreats(){
+  threats.sort((a,b)=>b.score-a.score);
+  const box=document.getElementById('threats');
+  document.getElementById('threat-ct').textContent=threats.length;
+  if(!threats.length){ box.innerHTML='<div class="empty">Sin amenazas activas de nivel medio o alto.<br>Vigilancia nominal.</div>'; return; }
+  box.innerHTML='';
+  threats.slice(0,40).forEach(t=>{
+    const b=document.createElement('button'); b.className='threat';
+    b.innerHTML=`<div class="top"><span class="tag" style="background:${t.color}">${t.kind}</span>
+      <span class="ttl">${t.title}</span><span class="sev" style="color:${t.color}">${t.sev}</span></div>
+      <div class="meta">${t.meta}</div>`;
+    b.onclick=()=>{ map.flyTo([t.lat,t.lon], Math.max(map.getZoom(),6), {duration:.8});
+      if(window.matchMedia('(max-width:820px)').matches){ document.getElementById('pright').classList.add('hide'); } };
+    box.appendChild(b);
+  });
+  // ticker
+  const tx = threats.slice(0,8).map(t=>`${t.kind}: ${t.title}`).join('   ·   ');
+  document.getElementById('ticker').innerHTML = tx
+    ? `<b>● EN VIVO</b>   ${esc(tx)}   ·   `.repeat(2)
+    : '<b>● VIGILANCIA NOMINAL</b>   ·   fuentes: USGS · NOAA · NASA FIRMS · Open-Meteo · GDACS';
+}
+
+// ============================ CICLO DE ACTUALIZACIÓN ============================
+function setStatus(txt, err){
+  const s=document.getElementById('status'); s.classList.toggle('err',!!err);
+  document.getElementById('status-tx').textContent=txt;
+}
+async function refreshLive(){
+  threats = threats.filter(t=>t.kind!=='SISMO'); // re-evaluar sismos
+  try{ await loadEarthquakes(); setStatus('SINCRONIZADO'); }
+  catch(e){ setStatus('ERROR SISMOS — reintentando', true); }
+  if(map.hasLayer(G.alerts)) await loadAlerts();
+  renderThreats();
+}
+async function init(){
+  buildLayerUI();
+  setStatus('CARGANDO…');
+  await loadBaked();           // capas 2x/día
+  await refreshLive();         // sismos/alertas en vivo
+  renderThreats();
+  setInterval(refreshLive, LIVE_REFRESH);
+  let t=LIVE_REFRESH/1000;
+  setInterval(()=>{ t--; if(t<=0)t=LIVE_REFRESH/1000;
+    const s=document.getElementById('status-tx');
+    if(s && s.textContent==='SINCRONIZADO') s.textContent='SYNC EN '+t+'s'; },1000);
+}
+
+// ============================ RELOJES ============================
+function tickClocks(){
+  const now=new Date();
+  const fmt=tz=>new Intl.DateTimeFormat('es-MX',{hour:'2-digit',minute:'2-digit',second:'2-digit',
+    hour12:false,timeZone:tz}).format(now);
+  document.getElementById('clk-mx').textContent=fmt('America/Mexico_City');
+  document.getElementById('clk-utc').textContent=fmt('UTC');
+}
+setInterval(tickClocks,1000); tickClocks();
+
+// toggles móviles
+document.getElementById('tog-l').onclick=()=>document.getElementById('pleft').classList.toggle('hide');
+document.getElementById('tog-r').onclick=()=>document.getElementById('pright').classList.toggle('hide');
+if(window.matchMedia('(max-width:820px)').matches){ document.getElementById('pleft').classList.add('hide'); }
+
+// re-cargar alertas NWS si el usuario enciende la capa
+const origAdd = map.addLayer.bind(map);
+map.addLayer = function(layer){ const r=origAdd(layer); if(layer===G.alerts) loadAlerts().then(renderThreats); return r; };
+
+// consola de zona
+document.getElementById('zgo').onclick=queryZone;
+document.getElementById('zq').addEventListener('keydown',e=>{ if(e.key==='Enter') queryZone(); });
+
+init();
+</script>
+</body>
+</html>
