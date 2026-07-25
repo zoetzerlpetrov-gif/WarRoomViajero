@@ -1,0 +1,50 @@
+name: Actualizar datos de riesgo
+
+# El cron de GitHub Actions usa SIEMPRE hora UTC.
+# Ciudad de México = UTC-6 todo el año (sin horario de verano desde 2022).
+#   06:00 CDMX  ->  12:00 UTC
+#   18:00 CDMX  ->  00:00 UTC
+# Nota: GitHub puede retrasar los cron unos minutos en horas de mucha carga.
+on:
+  schedule:
+    - cron: "0 0,12 * * *"
+  workflow_dispatch:        # permite ejecutarlo a mano desde la pestaña Actions
+  push:
+    branches: [main]
+    paths: ["scripts/fetch_data.py"]   # re-ejecuta si cambias el script
+
+permissions:
+  contents: write           # necesario para que el bot pueda commitear los datos
+
+concurrency:
+  group: actualizar-datos
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clonar repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Obtener y normalizar datos
+        env:
+          FIRMS_MAP_KEY: ${{ secrets.FIRMS_MAP_KEY }}   # clave gratuita de NASA FIRMS
+        run: python3 scripts/fetch_data.py
+
+      - name: Commitear cambios en /data
+        run: |
+          git config user.name  "clima-tactico-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add data/
+          if git diff --staged --quiet; then
+            echo "Sin cambios en los datos."
+          else
+            git commit -m "datos: actualización automática $(date -u +'%Y-%m-%d %H:%MZ')"
+            git push
+          fi
