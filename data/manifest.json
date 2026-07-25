@@ -1,49 +1,49 @@
 {
-  "generated": "2026-07-25T13:11:28Z",
+  "generated": "2026-07-25T21:36:08Z",
   "sources": {
     "fires": {
-      "count": 0,
-      "updated": "2026-07-25T13:12:58Z",
-      "seconds": 90.1
+      "count": 1500,
+      "updated": "2026-07-25T21:36:44Z",
+      "seconds": 35.9
     },
     "storms": {
       "count": 2,
-      "updated": "2026-07-25T13:12:58Z",
-      "seconds": 0.1
+      "updated": "2026-07-25T21:36:44Z",
+      "seconds": 0.2
     },
     "gdacs": {
-      "count": 15,
-      "updated": "2026-07-25T13:13:01Z",
-      "seconds": 2.9
+      "count": 14,
+      "updated": "2026-07-25T21:36:47Z",
+      "seconds": 2.4
     },
     "forecast": {
-      "count": 44,
-      "updated": "2026-07-25T13:13:02Z",
-      "seconds": 0.7
+      "count": 533,
+      "updated": "2026-07-25T21:36:50Z",
+      "seconds": 3.6
     },
     "airquality": {
-      "count": 44,
-      "updated": "2026-07-25T13:13:03Z",
-      "seconds": 0.6
+      "count": 533,
+      "updated": "2026-07-25T21:36:52Z",
+      "seconds": 1.3
     },
     "space": {
       "count": 0,
-      "updated": "2026-07-25T13:13:03Z",
+      "updated": "2026-07-25T21:36:52Z",
       "seconds": 0.2
     },
     "security": {
       "count": 0,
-      "updated": "2026-07-25T13:13:22Z",
-      "seconds": 19.6
+      "updated": "2026-07-25T21:37:12Z",
+      "seconds": 20.4
     },
     "advisories": {
       "count": 0,
-      "updated": "2026-07-25T13:13:23Z",
+      "updated": "2026-07-25T21:37:13Z",
       "seconds": 0.5
     },
     "volcanoes": {
       "count": 15,
-      "updated": "2026-07-25T13:13:23Z",
+      "updated": "2026-07-25T21:37:13Z",
       "seconds": 0.0
     }
   }
