@@ -28,6 +28,8 @@ import urllib.parse
 import xml.etree.ElementTree as ET
 import zipfile
 import re
+import hashlib
+import unicodedata
 from datetime import datetime, timezone
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
@@ -700,6 +702,118 @@ def fetch_security():
     return len(feats)
 
 
+MX_STATE_CENTROIDS = {
+    "Aguascalientes": (21.8853, -102.2916),
+    "Baja California Sur": (26.0444, -111.6661),
+    "Baja California": (30.8406, -115.2838),
+    "Campeche": (19.8301, -90.5349),
+    "Chiapas": (16.7569, -93.1292),
+    "Chihuahua": (28.6329, -106.0691),
+    "Ciudad de Mexico": (19.4326, -99.1332),
+    "Coahuila": (27.0587, -101.7068),
+    "Colima": (19.2452, -103.7241),
+    "Durango": (24.5593, -104.6588),
+    "Guanajuato": (21.0190, -101.2574),
+    "Guerrero": (17.4392, -99.5451),
+    "Hidalgo": (20.0911, -98.7624),
+    "Jalisco": (20.6595, -103.3494),
+    "Estado de Mexico": (19.4969, -99.7233),
+    "Michoacan": (19.5665, -101.7068),
+    "Morelos": (18.6813, -99.1013),
+    "Nayarit": (21.7514, -104.8455),
+    "Nuevo Leon": (25.5922, -99.9962),
+    "Oaxaca": (17.0732, -96.7266),
+    "Puebla": (19.0414, -98.2063),
+    "Queretaro": (20.5888, -100.3899),
+    "Quintana Roo": (19.1817, -88.4791),
+    "San Luis Potosi": (22.1565, -100.9855),
+    "Sinaloa": (25.1721, -107.4795),
+    "Sonora": (29.2972, -110.3309),
+    "Tabasco": (17.8409, -92.6189),
+    "Tamaulipas": (24.2669, -98.8363),
+    "Tlaxcala": (19.3139, -98.2404),
+    "Veracruz": (19.1738, -96.1342),
+    "Yucatan": (20.7099, -89.0943),
+    "Zacatecas": (22.7709, -102.5832),
+}
+
+MX_CITY_TO_STATE = {
+    "tijuana": "Baja California", "mexicali": "Baja California", "ensenada": "Baja California",
+    "la paz": "Baja California Sur", "los cabos": "Baja California Sur",
+    "campeche": "Campeche",
+    "tuxtla gutierrez": "Chiapas", "san cristobal de las casas": "Chiapas", "tapachula": "Chiapas",
+    "ciudad juarez": "Chihuahua", "juarez": "Chihuahua", "chihuahua": "Chihuahua",
+    "saltillo": "Coahuila", "torreon": "Coahuila", "piedras negras": "Coahuila",
+    "colima": "Colima", "manzanillo": "Colima",
+    "durango": "Durango", "gomez palacio": "Durango",
+    "leon": "Guanajuato", "irapuato": "Guanajuato", "celaya": "Guanajuato", "salamanca": "Guanajuato",
+    "acapulco": "Guerrero", "chilpancingo": "Guerrero", "iguala": "Guerrero", "taxco": "Guerrero", "zihuatanejo": "Guerrero",
+    "pachuca": "Hidalgo", "tulancingo": "Hidalgo",
+    "guadalajara": "Jalisco", "zapopan": "Jalisco", "puerto vallarta": "Jalisco", "tlaquepaque": "Jalisco",
+    "toluca": "Estado de Mexico", "ecatepec": "Estado de Mexico", "naucalpan": "Estado de Mexico", "tlalnepantla": "Estado de Mexico", "nezahualcoyotl": "Estado de Mexico",
+    "morelia": "Michoacan", "uruapan": "Michoacan", "zamora": "Michoacan", "jacona": "Michoacan",
+    "los reyes": "Michoacan", "lazaro cardenas": "Michoacan", "apatzingan": "Michoacan", "zitacuaro": "Michoacan",
+    "cuernavaca": "Morelos", "cuautla": "Morelos",
+    "tepic": "Nayarit",
+    "monterrey": "Nuevo Leon", "san pedro garza garcia": "Nuevo Leon", "guadalupe": "Nuevo Leon", "apodaca": "Nuevo Leon",
+    "oaxaca": "Oaxaca", "juchitan": "Oaxaca", "salina cruz": "Oaxaca",
+    "puebla": "Puebla", "cholula": "Puebla", "tehuacan": "Puebla",
+    "queretaro": "Queretaro",
+    "cancun": "Quintana Roo", "playa del carmen": "Quintana Roo", "chetumal": "Quintana Roo", "tulum": "Quintana Roo", "cozumel": "Quintana Roo",
+    "san luis potosi": "San Luis Potosi",
+    "culiacan": "Sinaloa", "mazatlan": "Sinaloa", "los mochis": "Sinaloa",
+    "hermosillo": "Sonora", "cajeme": "Sonora", "ciudad obregon": "Sonora", "nogales": "Sonora", "san luis rio colorado": "Sonora",
+    "villahermosa": "Tabasco",
+    "reynosa": "Tamaulipas", "matamoros": "Tamaulipas", "tampico": "Tamaulipas", "nuevo laredo": "Tamaulipas", "ciudad victoria": "Tamaulipas",
+    "tlaxcala": "Tlaxcala",
+    "veracruz": "Veracruz", "xalapa": "Veracruz", "coatzacoalcos": "Veracruz", "orizaba": "Veracruz", "cordoba": "Veracruz", "poza rica": "Veracruz", "minatitlan": "Veracruz",
+    "merida": "Yucatan", "valladolid": "Yucatan",
+    "zacatecas": "Zacatecas", "fresnillo": "Zacatecas",
+    "aguascalientes": "Aguascalientes",
+}
+
+INCIDENT_TYPES = [
+    ("BLOQUEO", ["bloque", "narcobloqueo", "cierran", "cierre", "carretera cerrada", "obstru", "toma de caseta", "toman la caseta"]),
+    ("SECUESTRO", ["secuestr", "plagio"]),
+    ("VIOLENCIA", ["balacera", "tiroteo", "enfrentamiento", "disparos", "homicidio", "asesinat", "ejecutad", "ejecucion", "masacre"]),
+    ("ASALTO", ["asalto", "asaltan", "asaltar", " robo ", "roban", "atraco"]),
+    ("EXTORSION", ["extorsion"]),
+]
+
+
+def _normalize_text(s):
+    s = (s or "").lower()
+    s = "".join(c for c in unicodedata.normalize("NFD", s) if unicodedata.category(c) != "Mn")
+    return s
+
+
+def _detect_mx_state(title):
+    n = " " + _normalize_text(title) + " "
+    for city, state in MX_CITY_TO_STATE.items():
+        if city in n:
+            return state
+    for state in MX_STATE_CENTROIDS:
+        if _normalize_text(state) in n:
+            return state
+    return None
+
+
+def _classify_incident(title):
+    n = _normalize_text(title)
+    for kind, kws in INCIDENT_TYPES:
+        for kw in kws:
+            if kw in n:
+                return kind
+    return "OTRO"
+
+
+def _jitter(lat, lon, seed_text):
+    h = int(hashlib.md5(seed_text.encode("utf-8")).hexdigest(), 16)
+    dlat = ((h % 1000) / 1000.0 - 0.5) * 0.5
+    dlon = (((h // 1000) % 1000) / 1000.0 - 0.5) * 0.5
+    return lat + dlat, lon + dlon
+
+
 def fetch_security_feed():
     items = []
     # Titulares Mexico en espanol (Google News RSS)
@@ -720,6 +834,7 @@ def fetch_security_feed():
         print(f"  [feed] google news MX: {len(items)}")
     except Exception as e:
         print(f"  [feed] google news fallo: {e}")
+    mx_items = list(items)
     # Titulares globales (GDELT DOC)
     try:
         q = urllib.parse.quote(SEC_QUERY)
@@ -738,6 +853,26 @@ def fetch_security_feed():
     with open(os.path.join(DATA_DIR, "security_feed.json"), "w", encoding="utf-8") as f:
         json.dump({"generated": now_iso(), "items": items[:40]}, f, ensure_ascii=False)
 
+    # Mapa aproximado de incidentes (solo notas de Mexico; ubicacion a nivel
+    # estado detectada por texto del titular; NO es la ubicacion exacta del hecho).
+    map_feats = []
+    try:
+        for it in mx_items:
+            title = it.get("title") or ""
+            state = _detect_mx_state(title)
+            if not state:
+                continue
+            base_lat, base_lon = MX_STATE_CENTROIDS[state]
+            lat, lon = _jitter(base_lat, base_lon, title)
+            kind = _classify_incident(title)
+            map_feats.append(feature(lon, lat, {
+                "title": title, "url": it.get("url") or "", "date": it.get("date") or "",
+                "source": it.get("source") or "", "state": state, "kind": kind,
+            }))
+        print(f"  [feed] mapa seguridad MX: {len(map_feats)}/{len(mx_items)} ubicados")
+    except Exception as e:
+        print(f"  [feed] mapa seguridad fallo: {e}")
+    write_geojson("security_map.geojson", map_feats, {"note": "Ubicacion aproximada a nivel estado, detectada por texto del titular. No es la ubicacion exacta del incidente."})
 
 # -------------------------------------------------------------------------
 # Orquestacion
