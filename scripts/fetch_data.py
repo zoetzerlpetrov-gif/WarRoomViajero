@@ -26,6 +26,8 @@ import urllib.request
 import urllib.error
 import urllib.parse
 import xml.etree.ElementTree as ET
+import zipfile
+import re
 from datetime import datetime, timezone
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
@@ -65,6 +67,116 @@ def feature(lon, lat, props):
         "geometry": {"type": "Point", "coordinates": [round(float(lon), 4), round(float(lat), 4)]},
         "properties": props,
     }
+
+
+def line_feature(coords, props):
+    return {
+        "type": "Feature",
+        "geometry": {"type": "LineString", "coordinates": [[round(float(lo), 4), round(float(la), 4)] for lo, la in coords]},
+        "properties": props,
+    }
+
+
+def _tc_category(wind_kt):
+    try:
+        w = float(wind_kt)
+    except Exception:
+        return "Desconocida"
+    if w >= 137: return "Categoria 5"
+    if w >= 113: return "Categoria 4"
+    if w >= 96:  return "Categoria 3"
+    if w >= 83:  return "Categoria 2"
+    if w >= 64:  return "Categoria 1 (huracan)"
+    if w >= 34:  return "Tormenta tropical"
+    return "Depresion tropical"
+
+
+def _kmz_to_kml_text(url):
+    raw = http_get(url, binary=True)
+    with zipfile.ZipFile(io.BytesIO(raw)) as z:
+        names = [n for n in z.namelist() if n.lower().endswith(".kml")]
+        if not names:
+            return ""
+        return z.read(names[0]).decode("utf-8", errors="replace")
+
+
+def _parse_forecast_kml(text):
+    pts = []
+    for block in re.findall(r"<Placemark>(.*?)</Placemark>", text, re.S):
+        if "<Point>" not in block:
+            continue
+        cm = re.search(r"<Point>\s*<coordinates>\s*([\-0-9.]+),([\-0-9.]+)", block)
+        if not cm:
+            continue
+        lon, lat = float(cm.group(1)), float(cm.group(2))
+        sm = re.search(r"<styleUrl>#(\w+)</styleUrl>", block)
+        style = sm.group(1) if sm else ""
+        is_initial = style == "initial_point"
+        hm = re.search(r"(\d+)\s*hr Forecast", block)
+        hours = 0 if is_initial else (int(hm.group(1)) if hm else None)
+        wm = re.search(r"Maximum Wind:\s*([0-9]+)\s*knots", block)
+        wind = int(wm.group(1)) if wm else None
+        vm = re.search(r"Valid at:\s*([^<\n]+?)\s*(?:</td>|\n)", block)
+        valid_txt = vm.group(1).strip() if vm else ""
+        pts.append({
+            "lon": lon, "lat": lat, "hours": hours,
+            "label": "Ahora" if is_initial else (f"+{hours}h" if hours is not None else "?"),
+            "wind_kt": wind, "category": _tc_category(wind) if wind is not None else "Desconocida",
+            "valid_text": valid_txt,
+        })
+    return pts
+
+
+def _parse_besttrack_kml(text, hours_limit=72):
+    pts = []
+    now = datetime.now(timezone.utc)
+    for block in re.findall(r"<Placemark>(.*?)</Placemark>", text, re.S):
+        dm = re.search(r"<atcfdtg>(\d{10})</atcfdtg>", block)
+        lam = re.search(r"<lat>([\-0-9.]+)</lat>", block)
+        lom = re.search(r"<lon>([\-0-9.]+)</lon>", block)
+        if not (dm and lam and lom):
+            continue
+        dtg = dm.group(1)
+        try:
+            tt = datetime(int(dtg[0:4]), int(dtg[4:6]), int(dtg[6:8]), int(dtg[8:10]), tzinfo=timezone.utc)
+        except Exception:
+            continue
+        age_h = (now - tt).total_seconds() / 3600.0
+        if age_h < 0 or age_h > hours_limit:
+            continue
+        wm = re.search(r"<intensity>([0-9]+)</intensity>", block)
+        wind = int(wm.group(1)) if wm else None
+        pts.append({
+            "lon": float(lom.group(1)), "lat": float(lam.group(1)),
+            "time_iso": tt.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "hours_ago": round(age_h, 1),
+            "wind_kt": wind, "category": _tc_category(wind) if wind is not None else "Desconocida",
+        })
+    pts.sort(key=lambda p: p["time_iso"])
+    return pts
+
+
+def fetch_ash_sigmets():
+    try:
+        raw = http_get("https://aviationweather.gov/api/data/isigmet?format=json&hazard=va")
+        data = json.loads(raw) if raw else []
+        return data if isinstance(data, list) else []
+    except Exception as e:
+        print(f"  [ceniza] fallo: {e}")
+        return []
+
+
+def _match_ash(name, ash_list):
+    n = re.sub(r"\(.*?\)", "", name).strip().upper()
+    n = n.replace("VOLCAN DE ", "").replace("NEVADO DE ", "")
+    first_word = n.split()[0] if n.split() else n
+    for a in ash_list:
+        q = (a.get("qualifier") or "").strip().upper()
+        if not q:
+            continue
+        if q in n or n in q or q == first_word or first_word in q:
+            return a
+    return None
 
 
 # -------------------------------------------------------------------------
@@ -160,6 +272,58 @@ def fetch_storms():
     except Exception as e:
         print(f"  [ciclones] fallo: {e}")
     return write_geojson("storms.geojson", feats)
+
+
+def fetch_storm_tracks():
+    feats = []
+    try:
+        data = json.loads(http_get("https://www.nhc.noaa.gov/CurrentStorms.json"))
+    except Exception as e:
+        print(f"  [trayectorias] fallo lista de tormentas: {e}")
+        return write_geojson("storm_tracks.geojson", feats)
+
+    for s in data.get("activeStorms", []):
+        sid = s.get("id", "")
+        sname = s.get("name", "Sin nombre")
+
+        try:
+            ft = (s.get("forecastTrack") or {}).get("kmzFile")
+            if ft:
+                fpts = _parse_forecast_kml(_kmz_to_kml_text(ft))
+                if fpts:
+                    feats.append(line_feature([(p["lon"], p["lat"]) for p in fpts], {
+                        "layer": "storm_track", "kind": "forecast", "storm_id": sid, "storm_name": sname,
+                    }))
+                    for p in fpts:
+                        feats.append(feature(p["lon"], p["lat"], {
+                            "layer": "storm_track", "kind": "forecast_point",
+                            "storm_id": sid, "storm_name": sname,
+                            "label": p["label"], "wind_kt": p["wind_kt"], "category": p["category"],
+                            "valid_text": p["valid_text"],
+                        }))
+        except Exception as e:
+            print(f"  [trayectorias] fallo pronostico {sname}: {e}")
+
+        try:
+            bt = (s.get("bestTrackGIS") or {}).get("kmzFile")
+            if bt:
+                bpts = _parse_besttrack_kml(_kmz_to_kml_text(bt), hours_limit=72)
+                if bpts:
+                    feats.append(line_feature([(p["lon"], p["lat"]) for p in bpts], {
+                        "layer": "storm_track", "kind": "past", "storm_id": sid, "storm_name": sname,
+                    }))
+                    for p in bpts:
+                        feats.append(feature(p["lon"], p["lat"], {
+                            "layer": "storm_track", "kind": "past_point",
+                            "storm_id": sid, "storm_name": sname,
+                            "time_iso": p["time_iso"], "hours_ago": p["hours_ago"],
+                            "wind_kt": p["wind_kt"], "category": p["category"],
+                        }))
+        except Exception as e:
+            print(f"  [trayectorias] fallo historico {sname}: {e}")
+
+    print(f"  [trayectorias] features: {len(feats)}")
+    return write_geojson("storm_tracks.geojson", feats)
 
 
 # -------------------------------------------------------------------------
@@ -321,16 +485,50 @@ VOLCANOES = [
     ("Nyiragongo", -1.520, 29.250, "RD Congo", "https://volcano.si.edu"),
 ]
 
+VOLCANOES_INACTIVOS = [
+    ("Iztaccihuatl", 19.179, -98.642, "Mexico", "https://www.gob.mx/cenapred"),
+    ("Nevado de Toluca (Xinantecatl)", 19.108, -99.758, "Mexico", "https://www.gob.mx/cenapred"),
+    ("Ajusco", 19.207, -99.262, "Mexico", "https://www.gob.mx/cenapred"),
+]
+
 def fetch_volcanoes():
     feats = []
-    for name, lat, lon, country, url in VOLCANOES:
-        feats.append(feature(lon, lat, {
+    ash_list = fetch_ash_sigmets()
+    combined = [(n, la, lo, c, u, "activo") for (n, la, lo, c, u) in VOLCANOES]
+    combined += [(n, la, lo, c, u, "inactivo") for (n, la, lo, c, u) in VOLCANOES_INACTIVOS]
+    for name, lat, lon, country, url, status in combined:
+        props = {
             "layer": "volcano",
             "name": name,
             "country": country,
             "url": url,
-            "note": "Nivel de actividad: consultar fuente oficial (CENAPRED/GVP).",
-        }))
+            "status": status,
+            "note": ("Nivel de actividad: consultar fuente oficial (CENAPRED/GVP)." if status == "activo"
+                     else "Volcan inactivo/dormido: sin monitoreo de erupcion en tiempo real."),
+        }
+        ash = _match_ash(name, ash_list) if status == "activo" else None
+        if ash:
+            top_ft = ash.get("top")
+            fl = round((top_ft or 0) / 100)
+            valid_to = ash.get("validTimeTo")
+            valid_iso = ""
+            try:
+                valid_iso = datetime.fromtimestamp(int(valid_to), tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            except Exception:
+                pass
+            props["ash_active"] = True
+            props["ash_top_ft"] = top_ft
+            props["ash_fl"] = fl
+            props["ash_dir"] = ash.get("dir")
+            props["ash_spd"] = ash.get("spd")
+            props["ash_valid_iso"] = valid_iso
+            props["ash_note"] = (f"Aviso de ceniza (SIGMET) vigente: tope aprox. FL{fl} "
+                                  f"({top_ft} ft), se desplaza hacia {ash.get('dir') or '?'} "
+                                  f"a {ash.get('spd') or '?'} kt.")
+        else:
+            props["ash_active"] = False
+            props["ash_note"] = "Sin ceniza reportada actualmente (SIGMET)."
+        feats.append(feature(lon, lat, props))
     print(f"  [volcanes] puntos: {len(feats)}")
     return write_geojson("volcanoes.geojson", feats)
 
@@ -553,6 +751,7 @@ def main():
     jobs = [
         ("fires", fetch_fires),
         ("storms", fetch_storms),
+        ("storm_tracks", fetch_storm_tracks),
         ("gdacs", fetch_gdacs),
         ("forecast", fetch_forecast),
         ("airquality", fetch_airquality),
