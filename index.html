@@ -238,6 +238,7 @@
 
 <aside class="panel panel-right hide" id="pright">
   <h2>AMENAZAS ACTIVAS <span class="ct" id="threat-ct">0</span><span class="ct" id="threat-filter-tag" style="display:none;cursor:pointer;color:var(--amber);margin-left:6px"></span></h2>
+        <select id="countryFilterSel" style="width:100%;margin:6px 0 8px;background:var(--panel);color:var(--text);border:1px solid var(--line-strong);border-radius:6px;padding:6px;font:12px var(--mono);"><option value="">Todos los países</option></select>
   <div class="body" id="threats"><div class="empty">Cargando inteligencia…</div></div>
 </aside>
 
@@ -247,6 +248,10 @@
 <footer class="hud-bottom">
   <div class="tk" id="ticker">INICIANDO SISTEMA…</div>
 </footer>
+      <div id="zoomCtl" style="position:fixed;left:50%;bottom:34px;transform:translateX(-50%);z-index:5000;display:flex;gap:8px;">
+      <button id="zoomInBtn" type="button" aria-label="Acercar" style="width:42px;height:42px;border-radius:8px;border:1px solid var(--line-strong);background:var(--panel);color:var(--green);font:700 22px var(--mono);cursor:pointer;">+</button>
+      <button id="zoomOutBtn" type="button" aria-label="Alejar" style="width:42px;height:42px;border-radius:8px;border:1px solid var(--line-strong);background:var(--panel);color:var(--green);font:700 22px var(--mono);cursor:pointer;">−</button>
+    </div>
 
 <script src="./vendor/leaflet.js"></script>
 <script>
@@ -259,9 +264,113 @@ const USGS = 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.
 const NWS  = 'https://api.weather.gov/alerts/active?status=actual&message_type=alert';
 
 // ============================ MAPA ============================
-const map = L.map('map',{zoomControl:true,worldCopyJump:true,minZoom:2,maxZoom:13,
+const map = L.map('map',{zoomControl:false,worldCopyJump:true,minZoom:2,maxZoom:13,
   attributionControl:true}).setView([23.6,-102.5],5);
-map.zoomControl.setPosition('bottomright');
+window.map = map;
+  document.getElementById('zoomInBtn').addEventListener('click',()=>map.zoomIn());
+document.getElementById('zoomOutBtn').addEventListener('click',()=>map.zoomOut());
+
+    const COUNTRY_GROUPS=[
+      ["México",["Ciudad de Mexico","Guadalajara","Monterrey","Cancun","Tijuana","Merida","Acapulco","Puerto Vallarta","Los Cabos","Oaxaca","Veracruz","Tuxtla Gutierrez","Chihuahua","Hermosillo","Tampico","Mazatlan","Queretaro","Puebla","La Paz","Villahermosa","Aguascalientes","Durango","Saltillo","San Luis Potosi","Leon Guanajuato","Irapuato","Celaya","Tlaxcala","Cuernavaca","Toluca","Xalapa","Orizaba","Cordoba Veracruz","Boca del Rio","Coatepec Veracruz","Papantla","Poza Rica","Comitan de Dominguez","Chiapa de Corzo","Tapachula","Puerto Escondido","Mazunte","Zipolite","Mitla","Tehuacan","Atlixco","Cholula","Bernal Queretaro","Tequisquiapan","Dolores Hidalgo","Patzcuaro","Uruapan","Tzintzuntzan","Janitzio","Manzanillo","Colima","Comala","Tepic","San Blas Nayarit","Guaymas","San Carlos Sonora","Puerto Penasco","Alamos Sonora","Creel","Barrancas del Cobre","Parras de la Fuente","Cuatro Cienegas","Real de Catorce","Xilitla","Ciudad Valles","El Tajin","Chichen Itza","Uxmal","Calakmul","Edzna","Monte Alban","Hierve el Agua","Canon del Sumidero","Cascadas de Agua Azul","Reserva Mariposa Monarca","Nevado de Toluca","Grutas de Cacahuamilpa","Las Coloradas Yucatan","Celestun","Progreso Yucatan","Izamal","Valladolid Yucatan","Rio Lagartos","Ek Balam"]],
+      ["España",["Madrid","Barcelona","Sevilla","Granada","Cordoba Espana","Valencia","Bilbao","San Sebastian","Malaga","Toledo","Salamanca","Santiago de Compostela","Palma de Mallorca","Ibiza"]],
+      ["Portugal",["Oporto","Sintra","Coimbra","Faro","Funchal","Ponta Delgada"]],
+      ["Reino Unido",["Londres","Edimburgo","Glasgow","Manchester","Liverpool","Bath","Oxford","Cambridge","York","Belfast","Cardiff","Inverness","Isla de Skye"]],
+      ["Francia",["Paris","Lyon","Niza","Marsella","Burdeos","Estrasburgo","Toulouse","Avinon","Cannes","Mont Saint Michel","Chamonix","Annecy"]],
+      ["Estados Unidos",["Nueva York","Los Angeles","Miami","Houston","Nueva Orleans","Washington DC","Boston","Philadelphia","Chicago","San Francisco","San Diego","Las Vegas","Orlando","Seattle","Portland Oregon","Denver","Phoenix","Austin","San Antonio","Dallas","Nashville","Memphis","Savannah","Charleston South Carolina","Atlanta","Honolulu","Anchorage","Salt Lake City","Santa Fe","Albuquerque","Sedona","Flagstaff","Palm Springs","Monterey California","Santa Barbara","Napa","Sonoma","Key West","Naples Florida","Tampa","Fort Lauderdale","St Augustine","Asheville","Jackson Hole","Moab","Bar Harbor","Newport Rhode Island","Salem Massachusetts","Cape Cod","Marthas Vineyard","Yellowstone National Park","Yosemite Valley","Grand Canyon South Rim","Zion National Park","Bryce Canyon National Park","Arches National Park","Monument Valley","Antelope Canyon","Death Valley National Park","Joshua Tree National Park","Great Smoky Mountains","Niagara Falls USA","Lake Tahoe","Mount Rushmore","Glacier National Park","Rocky Mountain National Park","Everglades National Park","Hawaii Volcanoes National Park","Denali National Park","Acadia National Park","Olympic National Park","Grand Teton National Park","Big Sur","Santa Monica","Anaheim"]],
+      ["Japón",["Tokio","Kioto","Osaka","Nara","Hiroshima","Sapporo","Fukuoka","Nagoya","Kanazawa","Takayama","Nikko","Hakone","Naha Okinawa"]],
+      ["China",["Pekin","Xian","Chengdu","Guangzhou","Shenzhen","Hangzhou","Suzhou","Guilin","Lijiang","Kunming","Chongqing","Zhangjiajie","Harbin","Macao"]],
+      ["Taiwán",["Taipei","Kaohsiung","Tainan","Taichung","Hualien"]],
+      ["Corea del Sur",["Busan","Isla de Jeju","Gyeongju","Incheon"]],
+      ["Brasil",["Sao Paulo"]],
+      ["Argentina",["Buenos Aires"]],
+      ["Colombia",["Bogota"]],
+      ["Perú",["Lima"]],
+      ["Chile",["Santiago"]],
+      ["Filipinas",["Manila","Cebu","Boracay","El Nido Palawan","Puerto Princesa","Bohol","Baguio"]],
+      ["India",["Mumbai","Agra","Jaipur","Varanasi","Udaipur","Jodhpur","Kochi","Goa","Chennai","Calcuta","Bangalore","Hyderabad India","Amritsar","Rishikesh"]],
+      ["Egipto",["El Cairo"]],
+      ["Australia",["Sidney"]],
+      ["Italia",["Roma","Milan","Florencia","Venecia","Napoles","Bolonia","Turin","Palermo","Catania","Verona","Siena","Pisa","Amalfi","Sorrento","Matera","Cinque Terre"]],
+      ["Alemania",["Berlin","Munich","Hamburgo","Colonia","Frankfurt","Dresde","Heidelberg","Nuremberg","Rothenburg ob der Tauber","Fussen","Castillo de Neuschwanstein"]],
+      ["Canadá",["Toronto"]],
+      ["Indonesia",["Yakarta","Bali","Ubud","Yogyakarta","Bandung","Surabaya","Lombok","Labuan Bajo","Parque Nacional de Komodo"]],
+      ["Tailandia",["Bangkok","Chiang Mai","Chiang Rai","Phuket","Krabi","Ayutthaya","Koh Samui","Pattaya"]],
+      ["Países Bajos",["Rotterdam","La Haya","Utrecht","Maastricht","Giethoorn"]],
+      ["Bélgica",["Brujas","Gante","Amberes","Lovaina"]],
+      ["Austria",["Salzburgo","Innsbruck","Hallstatt","Graz"]],
+      ["Suiza",["Ginebra","Lucerna","Berna","Interlaken","Zermatt","Lausana","St Moritz"]],
+      ["Grecia",["Salonika","Santorini","Mykonos","Rodas","Corfu","Meteora","Delfos","Heraklion"]],
+      ["Irlanda",["Cork","Galway","Killarney","Kilkenny","Acantilados de Moher"]],
+      ["Islandia",["Reikiavik","Akureyri"]],
+      ["Suecia",["Gotemburgo","Malmo"]],
+      ["Noruega",["Bergen","Tromso","Stavanger","Trondheim"]],
+      ["Finlandia",["Rovaniemi","Turku"]],
+      ["Estonia",["Tallin"]],
+      ["Letonia",["Riga"]],
+      ["Lituania",["Vilna"]],
+      ["Polonia",["Cracovia","Gdansk","Breslavia","Poznan","Zakopane"]],
+      ["Chequia",["Cesky Krumlov","Karlovy Vary"]],
+      ["Eslovaquia",["Bratislava","Kosice"]],
+      ["Eslovenia",["Liubliana","Lago Bled","Piran"]],
+      ["Croacia",["Zagreb","Dubrovnik","Split","Zadar","Lagos de Plitvice"]],
+      ["Bosnia y Herzegovina",["Sarajevo","Mostar"]],
+      ["Serbia",["Belgrado","Novi Sad"]],
+      ["Montenegro",["Kotor","Budva"]],
+      ["Albania",["Tirana","Berat"]],
+      ["Macedonia del Norte",["Skopie","Ohrid"]],
+      ["Bulgaria",["Sofia","Plovdiv","Veliko Tarnovo"]],
+      ["Rumania",["Bucarest","Brasov","Sibiu","Sighisoara"]],
+      ["Moldavia",["Chisinau"]],
+      ["Chipre",["Nicosia","Pafos","Limassol"]],
+      ["Malta",["La Valeta","Mdina"]],
+      ["Luxemburgo",["Luxemburgo"]],
+      ["Mónaco",["Monaco"]],
+      ["Andorra",["Andorra la Vella"]],
+      ["San Marino",["San Marino"]],
+      ["Liechtenstein",["Vaduz"]],
+      ["Vietnam",["Hoi An","Hue","Da Nang","Bahia de Ha Long","Ninh Binh","Sapa","Phu Quoc"]],
+      ["Malasia",["George Town Penang","Malaca","Langkawi","Kota Kinabalu"]],
+      ["Camboya",["Siem Reap","Phnom Penh"]],
+      ["Laos",["Luang Prabang","Vientian"]],
+      ["Myanmar",["Yangon","Bagan","Mandalay"]],
+      ["Nepal",["Katmandu","Pokhara"]],
+      ["Bután",["Thimphu","Paro"]],
+      ["Sri Lanka",["Colombo","Kandy","Galle","Sigiriya","Ella Sri Lanka"]],
+      ["Kazajistán",["Almaty","Astana"]],
+      ["Uzbekistán",["Samarcanda","Bujara","Taskent","Jiva"]],
+      ["Kirguistán",["Biskek","Osh"]],
+      ["Tayikistán",["Dusambe"]],
+      ["Turkmenistán",["Asjabad"]],
+      ["Mongolia",["Ulan Bator"]],
+      ["Georgia",["Tiflis","Batumi"]],
+      ["Armenia",["Erevan"]],
+      ["Azerbaiyán",["Baku"]],
+      ["Emiratos Árabes Unidos",["Sharjah","Al Ain","Ras Al Khaimah","Fujairah"]],
+      ["Arabia Saudita",["Yeda","La Meca","Medina","AlUla","Abha","Taif","Diriyah"]],
+      ["Catar",["Al Wakrah","Al Khor","Al Zubarah"]],
+      ["Baréin",["Manama","Muharraq"]],
+      ["Jordania",["Petra","Wadi Rum","Aqaba","Jerash","Madaba","Mar Muerto Jordania"]],
+      ["Israel",["Haifa","Acre","Nazaret","Eilat","Masada","Cesarea","Mar de Galilea"]],
+      ["Palestina",["Belen","Ramala","Jerico","Hebron"]],
+      ["Líbano",["Biblos","Baalbek","Tripoli Libano","Sidon","Tiro","Bcharre"]],
+      ["Omán",["Nizwa","Salalah","Sur Oman","Khasab","Jebel Akhdar","Wahiba Sands"]],
+      ["Irak",["Erbil","Mosul","Najaf","Karbala","Basora","Babilonia"]],
+      ["Irán",["Isfahan","Shiraz","Yazd","Kashan","Tabriz","Mashhad","Qom","Persepolis","Kerman","Isla Qeshm","Isla Kish"]],
+      ["Turquía",["Capadocia","Antalya","Esmirna","Efeso","Pamukkale","Ankara","Bodrum","Fethiye","Mardin","Gaziantep","Trabzon","Konya"]],
+      ["Siria",["Damasco","Alepo","Palmira","Latakia"]],
+      ["Yemen",["Sanaa","Aden","Isla de Socotra","Shibam"]]
+    ];
+    const CITY_COUNTRY={};
+    COUNTRY_GROUPS.forEach(g=>{g[1].forEach(c=>{CITY_COUNTRY[c]=g[0];});});
+    function sismoCountry(place){
+      if(!place) return "No determinado";
+      const US_ST=["Alaska","Alabama","Arizona","Arkansas","California","Colorado","Connecticut","Delaware","Florida","Georgia","Hawaii","Idaho","Illinois","Indiana","Iowa","Kansas","Kentucky","Louisiana","Maine","Maryland","Massachusetts","Michigan","Minnesota","Mississippi","Missouri","Montana","Nebraska","Nevada","New Hampshire","New Jersey","New Mexico","New York","North Carolina","North Dakota","Ohio","Oklahoma","Oregon","Pennsylvania","Rhode Island","South Carolina","South Dakota","Tennessee","Texas","Utah","Vermont","Virginia","Washington","West Virginia","Wisconsin","Wyoming","CA","AK"];
+      const parts=place.split(",");
+      const last=parts[parts.length-1].trim();
+      if(US_ST.some(s=>last===s)) return "Estados Unidos";
+      if(/Mexico/i.test(last)) return "México";
+      return last || "No determinado";
+    }
 
 L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png',{
   attribution:'&copy; OpenStreetMap · &copy; CARTO · datos: USGS, NOAA, NASA FIRMS, Open-Meteo, GDACS',
@@ -286,6 +395,7 @@ const counts = {}; let threats = []; let cdmxAir = null; let advisories = {};
 const FEATS = {eq:[], storms:[], gdacs:[], fires:[], forecast:[], air:[], security:[], volcano:[]};
 const RADIUS_KM = 180;
 let ZONE_FILTER = null, zoneCircle = null;
+  let COUNTRY_FILTER = null;
 
 // ============================ DEFINICIÓN DE CAPAS (UI) ============================
 const LAYERS = [
@@ -357,7 +467,7 @@ async function loadEarthquakes(){
     if(m>=4.5 || tsu){
       threats.push({score:(tsu?100:0)+m*10, kind:'SISMO', color:eqColor(m), sev:m.toFixed(1),
         title:(tsu?'⚠ TSUNAMI · ':'')+esc(p.place||'Sismo'), meta:fmtAgo(p.time)+' · prof '+Math.round(depth)+' km',
-        lat, lon});
+        lat, lon, country:sismoCountry(p.place)});
     }
   });
   counts.eq=n; document.getElementById('cnt-eq').textContent=n;
@@ -443,7 +553,7 @@ function stormLayer(f){
     <div><span class="k">Presión:</span> <b>${esc(p.pressure_mb)} mb</b></div>
     <div><span class="k">Movimiento:</span> <b>${esc(p.movement)}</b></div></div>`);
   threats.push({score:200+ (parseFloat(p.intensity_kt)||0), kind:'CICLÓN', color:C.cyan,
-    sev:'TC', title:esc(p.name+' · '+(p.class_label||'')), meta:esc(p.intensity_kt)+' kt', lat, lon});
+    sev:'TC', title:esc(p.name+' · '+(p.class_label||'')), meta:esc(p.intensity_kt)+' kt', lat, lon, country:'Internacional (océano)'});
   return m;
 }
 function gdacsLayer(f){
@@ -457,7 +567,7 @@ function gdacsLayer(f){
     ${p.url?`<div style="margin-top:6px"><a href="${esc(p.url)}" target="_blank" rel="noopener">Reporte GDACS ↗</a></div>`:''}</div>`);
   if(lvl==='orange'||lvl==='red'){
     threats.push({score:(lvl==='red'?160:120), kind:(p.type_label||'GDACS').toUpperCase().slice(0,8),
-      color:c, sev:lvl==='red'?'!!':'!', title:esc((p.name||'').slice(0,42)), meta:esc(p.country||''), lat, lon});
+      color:c, sev:lvl==='red'?'!!':'!', title:esc((p.name||'').slice(0,42)), meta:esc(p.country||''), lat, lon, country:p.country||'No determinado'});
   }
   return m;
 }
@@ -497,7 +607,7 @@ function forecastLayer(f){
   if((p.level||0)>=2){
     threats.push({score:40+(p.level*15), kind:'CLIMA', color:c, sev:'7d',
       title:esc(p.name)+' · '+esc(p.level_label),
-      meta:p.max_rain_mm+'mm · '+p.max_gust_kmh+'km/h', lat, lon});
+      meta:p.max_rain_mm+'mm · '+p.max_gust_kmh+'km/h', lat, lon, country:CITY_COUNTRY[p.name]||'No determinado'});
   }
   return m;
 }
@@ -514,7 +624,7 @@ function airLayer(f){
     <div><span class="k">Ozono:</span> <b>${fmtn(p.ozone)} µg/m³</b></div></div>`);
   if((p.level||0)>=2){
     threats.push({score:60+(p.us_aqi||0)/2, kind:'AIRE', color:c, sev:(p.us_aqi==null?'?':p.us_aqi),
-      title:esc(p.name)+' · '+esc(p.level_label), meta:'PM2.5 '+fmtn(p.pm2_5)+' µg/m³', lat, lon});
+      title:esc(p.name)+' · '+esc(p.level_label), meta:'PM2.5 '+fmtn(p.pm2_5)+' µg/m³', lat, lon, country:CITY_COUNTRY[p.name]||'No determinado'});
   }
   return m;
 }
@@ -536,12 +646,12 @@ function spaceThreats(sp){
   if(!sp||!sp.R) return;
   if(sp.R.scale>=1) threats.push({score:150+sp.R.scale*20, kind:'SOLAR', color:AQI_COLS[Math.min(sp.R.scale,5)],
     sev:'R'+sp.R.scale, title:'Apagón de radio / llamarada'+(sp.flare&&sp.flare.class?' '+esc(sp.flare.class):''),
-    meta:esc(sp.R.text), lat:0, lon:0});
+    meta:esc(sp.R.text), lat:0, lon:0, country:'Global'});
   if(sp.S.scale>=1) threats.push({score:140+sp.S.scale*20, kind:'RADIACIÓN', color:AQI_COLS[Math.min(sp.S.scale,5)],
-    sev:'S'+sp.S.scale, title:'Tormenta de radiación solar', meta:esc(sp.S.text), lat:0, lon:0});
+    sev:'S'+sp.S.scale, title:'Tormenta de radiación solar', meta:esc(sp.S.text), lat:0, lon:0, country:'Global'});
   const kpv = sp.kp?sp.kp.value:0;
   if(sp.G.scale>=1 || kpv>=5) threats.push({score:130+sp.G.scale*20, kind:'GEOMAG', color:AQI_COLS[Math.min(Math.max(sp.G.scale,1),5)],
-    sev:'G'+sp.G.scale, title:'Tormenta geomagnética', meta:'Kp '+Math.round(kpv), lat:0, lon:0});
+    sev:'G'+sp.G.scale, title:'Tormenta geomagnética', meta:'Kp '+Math.round(kpv), lat:0, lon:0, country:'Global'});
 }
 
 const HNC={1:['Amarillo','#ffd23f','5 y 6'],2:['Rosa','#ff6fb5','7 y 8'],
@@ -579,7 +689,7 @@ function securityLayer(f){
     <div class="k" style="font-size:10px;margin-top:4px">Señal de cobertura noticiosa, no un incidente confirmado.</div>
     <div style="margin-top:6px"><a href="${gnews}" target="_blank" rel="noopener">Ver noticias ↗</a></div></div>`);
   if(cnt>=3) threats.push({score:70+cnt, kind:'SEGURIDAD', color:c, sev:cnt,
-    title:esc(p.name||'Señal de seguridad'), meta:'menciones en noticias 24 h', lat, lon});
+    title:esc(p.name||'Señal de seguridad'), meta:'menciones en noticias 24 h', lat, lon, country:CITY_COUNTRY[p.name]||'No determinado'});
   return m;
 }
 
@@ -715,6 +825,15 @@ function renderThreats(){
   if(ZONE_FILTER){
     list=threats.filter(function(t){ return (t.lat===0&&t.lon===0) || haversine(ZONE_FILTER.lat,ZONE_FILTER.lon,t.lat,t.lon)<=ZONE_FILTER.radius; });
   }
+      const countrySel=document.getElementById('countryFilterSel');
+    if(countrySel){
+      const countries=[...new Set(list.map(function(t){return t.country||'No determinado';}))].sort(function(a,b){return a.localeCompare(b,'es');});
+      const prevSel=countrySel.value;
+      countrySel.innerHTML='<option value="">Todos los países</option>'+countries.map(function(c){return '<option value="'+esc(c)+'">'+esc(c)+'</option>';}).join('');
+      if(countries.indexOf(prevSel)>=0){ countrySel.value=prevSel; } else { COUNTRY_FILTER=null; }
+      countrySel.onchange=function(){ COUNTRY_FILTER=this.value||null; renderThreats(); };
+    }
+    if(COUNTRY_FILTER){ list=list.filter(function(t){return (t.country||'No determinado')===COUNTRY_FILTER;}); }
   document.getElementById('threat-ct').textContent=list.length;
   const tag=document.getElementById('threat-filter-tag');
   if(tag){
