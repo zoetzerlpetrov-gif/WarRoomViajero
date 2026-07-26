@@ -470,7 +470,31 @@ async function loadEarthquakes(){
         lat, lon, country:sismoCountry(p.place)});
     }
   });
-  counts.eq=n; document.getElementById('cnt-eq').textContent=n;
+    // Detección de posibles enjambres sísmicos en México (heurística por grilla ~50km)
+  const gridDeg = 0.45;
+  const swarmCells = {};
+  gj.features.forEach(function(f2){
+    const lon2=f2.geometry.coordinates[0], lat2=f2.geometry.coordinates[1];
+    if(lat2<14.0 || lat2>33.0 || lon2<-119 || lon2>-85) return;
+    const key = Math.round(lat2/gridDeg)+'_'+Math.round(lon2/gridDeg);
+    (swarmCells[key] = swarmCells[key]||[]).push({lat:lat2,lon:lon2,mag:f2.properties.mag||0});
+  });
+  Object.values(swarmCells).forEach(function(cell){
+    if(cell.length < 5) return;
+    const clat = cell.reduce(function(s,c){return s+c.lat;},0)/cell.length;
+    const clon = cell.reduce(function(s,c){return s+c.lon;},0)/cell.length;
+    const maxMag = Math.max.apply(null, cell.map(function(c){return c.mag;}));
+    const circ = L.circle([clat,clon],{radius:50000,color:C.orange,weight:1.4,dashArray:'4 5',fill:false,interactive:false}).addTo(G.eq);
+    circ.bindPopup('<div class="pp"><span class="ptag" style="background:'+C.orange+'">POSIBLE ENJAMBRE SÍSMICO</span>'+
+      '<div><span class="k">Eventos agrupados:</span> <b>'+cell.length+'</b></div>'+
+      '<div><span class="k">Magnitud máxima:</span> <b>'+maxMag.toFixed(1)+'</b></div>'+
+      '<div class="cnote" style="margin-top:5px">Detección heurística por agrupación geográfica (USGS, últimas 24 h). No sustituye el análisis oficial del SSN.</div></div>');
+    FEATS.eq.push({lat:clat,lon:clon,props:{},marker:circ});
+    threats.push({score:60+cell.length*2, kind:'ENJAMBRE', color:C.orange, sev:cell.length+'x',
+      title:'Posible enjambre sísmico ('+cell.length+' eventos)', meta:'Mag. máx '+maxMag.toFixed(1),
+      lat:clat, lon:clon, country:'México'});
+  });
+counts.eq=n; document.getElementById('cnt-eq').textContent=n;
 }
 function eqPopup(p,depth,tsu,m){
   return `<div class="pp"><span class="ptag" style="background:${eqColor(m)}">SISMO M${m.toFixed(1)}</span>
@@ -508,7 +532,7 @@ async function loadBaked(){
   try{ man = await (await fetch('./data/manifest.json',{cache:'no-store'})).json(); }catch(e){}
   document.getElementById('lastsync').textContent = man.generated
     ? 'SYNC '+man.generated.slice(5,16).replace('T',' ')+'Z' : 'SYNC —';
-
+    
   await Promise.all([
     bake('storms','storms.geojson', stormLayer),
     bake('gdacs','gdacs.geojson', gdacsLayer),
@@ -518,7 +542,8 @@ async function loadBaked(){
     bake('security','security.geojson', securityLayer),
     bake('volcano','volcanoes.geojson', volcanoLayer),
   ]);
-  renderVdM(); // usa la calidad del aire de CDMX ya cargada
+await loadStormTracks();
+    renderVdM(); // usa la calidad del aire de CDMX ya cargada
   try{ advisories = (await (await fetch('./data/advisories.json',{cache:'no-store'})).json()).data || {}; }catch(e){}
   await loadFeed();
 
@@ -556,10 +581,50 @@ function stormLayer(f){
     sev:'TC', title:esc(p.name+' · '+(p.class_label||'')), meta:esc(p.intensity_kt)+' kt', lat, lon, country:'Internacional (océano)'});
   return m;
 }
+
+async function loadStormTracks(){
+  try{
+    const gj = await (await fetch('./data/storm_tracks.geojson',{cache:'no-store'})).json();
+    (gj.features||[]).forEach(function(f){
+      const p = f.properties||{};
+      if(f.geometry.type==='LineString'){
+        const latlngs = f.geometry.coordinates.map(function(c){return [c[1],c[0]];});
+        const isForecast = p.kind==='forecast';
+        const pl = L.polyline(latlngs,{color:isForecast?C.amber:C.cyan, weight:isForecast?2:2.5,
+          dashArray:isForecast?'6 6':null, opacity:.85}).addTo(G.storms);
+        const mid = latlngs[Math.floor(latlngs.length/2)] || latlngs[0] || [0,0];
+        FEATS.storms.push({lat:mid[0], lon:mid[1], props:p, marker:pl});
+      } else if(f.geometry.type==='Point'){
+        const lon=f.geometry.coordinates[0], lat=f.geometry.coordinates[1];
+        const isForecastPt = p.kind==='forecast_point';
+        const isPastPt = p.kind==='past_point';
+        if(!isForecastPt && !isPastPt) return;
+        const color = isForecastPt ? C.amber : C.muted;
+        const m = L.circleMarker([lat,lon],{radius:4,color:color, weight:1.4, fillColor:color, fillOpacity:.7}).addTo(G.storms);
+        let popup;
+        if(isForecastPt){
+          popup = '<div class="pp"><span class="ptag" style="background:'+C.amber+'">PRONÓSTICO '+esc(p.label||'')+'</span>'+
+            '<h3>'+esc(p.storm_name||'')+'</h3>'+
+            '<div><span class="k">Categoría:</span> <b>'+esc(p.category||'')+'</b></div>'+
+            '<div><span class="k">Vientos:</span> <b>'+esc(p.wind_kt||'—')+' kt</b></div>'+
+            '<div><span class="k">Válido:</span> <b>'+esc(p.valid_text||'')+'</b></div></div>';
+        } else {
+          popup = '<div class="pp"><span class="ptag" style="background:'+C.muted+'">HACE '+esc(p.hours_ago)+' h</span>'+
+            '<h3>'+esc(p.storm_name||'')+'</h3>'+
+            '<div><span class="k">Categoría:</span> <b>'+esc(p.category||'')+'</b></div>'+
+            '<div><span class="k">Vientos:</span> <b>'+esc(p.wind_kt||'—')+' kt</b></div></div>';
+        }
+        m.bindPopup(popup);
+        FEATS.storms.push({lat:lat,lon:lon,props:p,marker:m});
+      }
+    });
+  }catch(e){ /* capa opcional: silencioso si falla */ }
+}
 function gdacsLayer(f){
   const [lon,lat]=f.geometry.coordinates, p=f.properties;
   const lvl=(p.alertlevel||'Green').toLowerCase();
   const c = lvl==='red'?C.red : lvl==='orange'?C.orange : C.green;
+
   const m=L.circleMarker([lat,lon],{radius:7,color:c,weight:1.6,fillColor:c,fillOpacity:.3});
   m.bindPopup(`<div class="pp"><span class="ptag" style="background:${c}">${esc(p.type_label||'EVENTO')} · ${esc(p.alertlevel)}</span>
     <h3>${esc((p.name||'Evento').slice(0,70))}</h3>
@@ -699,10 +764,18 @@ function fmtDate(s){
   if(/^\d{8}T/.test(s)) return s.slice(0,4)+'-'+s.slice(4,6)+'-'+s.slice(6,8); // GDELT
   const d=new Date(s); return isNaN(d)?String(s).slice(0,16):d.toLocaleDateString('es-MX',{month:'short',day:'numeric'});
 }
+function feedDate(s){
+  if(!s) return 0;
+  if(/^\d{8}T/.test(s)){
+    const iso = s.slice(0,4)+'-'+s.slice(4,6)+'-'+s.slice(6,8)+'T'+s.slice(9,11)+':'+s.slice(11,13)+':'+s.slice(13,15)+'Z';
+    const d0 = Date.parse(iso); return isNaN(d0)?0:d0;
+  }
+  const d=new Date(s); return isNaN(d)?0:d.getTime();
+}
 async function loadFeed(){
   try{
     const fd=await (await fetch('./data/security_feed.json',{cache:'no-store'})).json();
-    const items=(fd.items||[]).slice(0,15);
+    const items=(fd.items||[]).slice().sort((a,b)=>feedDate(b.date)-feedDate(a.date)).slice(0,15);
     document.getElementById('feed').innerHTML='<div class="ch">FEED DE SEGURIDAD</div>'+
       (items.length ? items.map(i=>`<a class="fitem" href="${esc(i.url)}" target="_blank" rel="noopener">${esc((i.title||'').slice(0,95))}<span class="fs">${esc(i.source||'')} · ${esc(fmtDate(i.date))} · señal, verifica</span></a>`).join('')
         : '<div class="cnote">Sin señales por ahora. Se llena en la próxima actualización.</div>');
@@ -806,14 +879,25 @@ async function queryZone(){
 
 function volcanoLayer(f){
   const [lon,lat]=f.geometry.coordinates, p=f.properties;
+  const inactive = p.status==='inactivo';
+  const col = inactive ? C.muted : C.violet;
   const m=L.marker([lat,lon],{icon:L.divIcon({className:'',
-    html:`<div style="width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:13px solid ${C.violet};filter:drop-shadow(0 0 4px rgba(181,108,255,.6))"></div>`,
+    html:`<div style="width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:13px solid ${col};opacity:${inactive?0.55:1};filter:drop-shadow(0 0 4px ${inactive?'rgba(111,138,130,.5)':'rgba(181,108,255,.6)'})"></div>`,
     iconSize:[14,13],iconAnchor:[7,13]})});
-  m.bindPopup(`<div class="pp"><span class="ptag" style="background:${C.violet}">VOLCÁN</span>
+  m.bindPopup(`<div class="pp"><span class="ptag" style="background:${col}">${inactive?'VOLCÁN INACTIVO':'VOLCÁN'}</span>
+    ${p.ash_active?'<span class="ptag" style="background:'+C.orange+';margin-left:5px">CENIZA</span>':''}
     <h3>${esc(p.name)}</h3>
     <div><span class="k">País:</span> <b>${esc(p.country)}</b></div>
     <div class="k" style="margin-top:5px">${esc(p.note||'')}</div>
+    ${p.ash_active?`<div style="margin-top:5px"><span class="k">Ceniza:</span> <b>FL${esc(p.ash_fl)} (${esc(p.ash_top_ft)} ft)</b></div>
+    <div><span class="k">Dirección:</span> <b>${esc(p.ash_dir||'—')}</b> · <span class="k">Vel:</span> <b>${esc(p.ash_spd||'—')} kt</b></div>`:''}
+    <div class="cnote" style="margin-top:5px">${esc(p.ash_note||'')}</div>
     <div style="margin-top:6px"><a href="${esc(p.url)}" target="_blank" rel="noopener">Fuente oficial ↗</a></div></div>`);
+  if(p.ash_active){
+    threats.push({score:70, kind:'CENIZA', color:C.orange, sev:'VA',
+      title:'Ceniza volcánica · '+esc(p.name), meta:'FL'+esc(p.ash_fl)+' · hacia '+esc(p.ash_dir||'—'),
+      lat, lon, country:esc(p.country)});
+  }
   return m;
 }
 
@@ -868,7 +952,7 @@ function setStatus(txt, err){
   document.getElementById('status-tx').textContent=txt;
 }
 async function refreshLive(){
-  threats = threats.filter(t=>t.kind!=='SISMO'); // re-evaluar sismos
+  threats = threats.filter(t=>t.kind!=='SISMO' && t.kind!=='ENJAMBRE'); // re-evaluar sismos y enjambres
   try{ await loadEarthquakes(); setStatus('SINCRONIZADO'); }
   catch(e){ setStatus('ERROR SISMOS — reintentando', true); }
   if(map.hasLayer(G.alerts)) await loadAlerts();
