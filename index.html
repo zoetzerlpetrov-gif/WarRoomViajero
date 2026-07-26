@@ -8,7 +8,7 @@
 <link rel="stylesheet" href="./vendor/leaflet.css" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Oxanium:wght@400;600;700;800&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?famhily=Oxanium:wght@400;600;700;800&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <style>
   :root{
     --bg:#070b0a; --bg2:#0b1211; --panel:rgba(9,16,14,.86);
@@ -70,14 +70,14 @@
   /* ---- side panels ---- */
   .panel{position:fixed;z-index:500;width:268px;background:var(--panel);
     border:1px solid var(--line-strong);backdrop-filter:blur(4px);
-    display:flex;flex-direction:column;max-height:calc(100vh - 96px)}
+    display:flex;flex-direction:column;max-height:calc(100vh - 96px);max-height:calc(100dvh - 96px)}
   .panel-left{top:62px;left:10px}
   .panel-right{top:62px;right:10px}
   .panel h2{font-family:var(--disp);font-size:12px;letter-spacing:3px;color:var(--amber);
     margin:0;padding:10px 12px;border-bottom:1px solid var(--line);display:flex;
     align-items:center;justify-content:space-between;background:rgba(255,176,0,.05)}
   .panel h2 .ct{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:1px}
-  .panel .body{overflow:auto;padding:6px 6px 8px}
+  .panel .body{overflow:auto;padding:6px 6px 8px;flex:1;min-height:0}
 
   .layer{display:flex;align-items:center;gap:9px;padding:7px 8px;border-radius:2px;cursor:pointer;
     border:1px solid transparent}
@@ -181,7 +181,7 @@
     .hud-top{padding:7px 16px;gap:8px}
     .brand .sub{display:none}
     .clocks{gap:10px}
-    .panel{max-height:46vh;width:min(86vw,300px);transition:transform .25s}
+    .panel{max-height:46vh;max-height:46dvh;width:min(86vw,300px);transition:transform .25s}
     .panel-left.hide{transform:translateX(-118%)}
     .panel-right.hide{transform:translateX(118%)}
     .ptog{display:block}
@@ -238,7 +238,7 @@
 
 <aside class="panel panel-right hide" id="pright">
   <h2>AMENAZAS ACTIVAS <span class="ct" id="threat-ct">0</span><span class="ct" id="threat-filter-tag" style="display:none;cursor:pointer;color:var(--amber);margin-left:6px"></span></h2>
-        <select id="countryFilterSel" style="width:100%;margin:6px 0 8px;background:var(--panel);color:var(--text);border:1px solid var(--line-strong);border-radius:6px;padding:6px;font:12px var(--mono);"><option value="">Todos los países</option></select>
+        <select id="countryFilterSel" style="flex:0 0 auto;width:100%;margin:6px 0 8px;background:var(--panel);color:var(--text);border:1px solid var(--line-strong);border-radius:6px;padding:6px;font:12px var(--mono);"><option value="">Todos los países</option></select>
   <div class="body" id="threats"><div class="empty">Cargando inteligencia…</div></div>
 </aside>
 
@@ -389,11 +389,12 @@ const G = {
   forecast:L.layerGroup().addTo(map),
   air:     L.layerGroup().addTo(map),
   security:L.layerGroup().addTo(map),
+  secmap:  L.layerGroup().addTo(map),
   volcano: L.layerGroup().addTo(map),
 };
 const counts = {}; let threats = []; let cdmxAir = null; let advisories = {};
-const FEATS = {eq:[], storms:[], gdacs:[], fires:[], forecast:[], air:[], security:[], volcano:[]};
-const RADIUS_KM = 180;
+const FEATS = {eq:[], storms:[], gdacs:[], fires:[], forecast:[], air:[], security:[], volcano:[], secmap:[]};
+      const RADIUS_KM = 180;
 let ZONE_FILTER = null, zoneCircle = null;
   let COUNTRY_FILTER = null;
 
@@ -407,6 +408,7 @@ const LAYERS = [
   {id:'forecast',name:'Pronóstico 7 días',   sub:'Open-Meteo',       color:C.green,  group:G.forecast},
   {id:'air',     name:'Calidad del aire',     sub:'Open-Meteo · US AQI',color:'#cda2ff',group:G.air},
   {id:'security',name:'Seguridad (noticias)',  sub:'GDELT · señales 24 h',color:'#ff5c8a',group:G.security},
+  {id:'secmap',  name:'Seguridad (mapa)',     sub:'Google News MX · aprox. estado',color:'#ff8a3d',group:G.secmap},
   {id:'volcano', name:'Volcanes',            sub:'CENAPRED / GVP',   color:C.violet, group:G.volcano},
 ];
 
@@ -540,6 +542,7 @@ async function loadBaked(){
     bake('forecast','forecast.geojson', forecastLayer),
     bake('air','airquality.geojson', airLayer),
     bake('security','security.geojson', securityLayer),
+    bake('secmap','security_map.geojson', secmapLayer),
     bake('volcano','volcanoes.geojson', volcanoLayer),
   ]);
 await loadStormTracks();
@@ -743,6 +746,24 @@ function renderVdM(){
 }
 
 // ---- SEGURIDAD (señales de noticias) ----
+const SECMAP_ICONS  = {BLOQUEO:'🚧', SECUESTRO:'❗', VIOLENCIA:'💥', ASALTO:'🛑', EXTORSION:'💰', OTRO:'📍'};
+const SECMAP_COLORS = {BLOQUEO:'#ff8a3d', SECUESTRO:'#ff2d6f', VIOLENCIA:'#ff2d6f', ASALTO:'#ffb000', EXTORSION:'#cda2ff', OTRO:'#ff5c8a'};
+function secmapLayer(f){
+  const [lon,lat]=f.geometry.coordinates, p=f.properties;
+  const kind=p.kind||'OTRO', col=SECMAP_COLORS[kind]||'#ff5c8a', ic=SECMAP_ICONS[kind]||'📍';
+  const m=L.marker([lat,lon],{icon:L.divIcon({className:'',
+    html:'<div style="font-size:15px;line-height:1;filter:drop-shadow(0 0 3px rgba(0,0,0,.7))">'+ic+'</div>',
+    iconSize:[18,18],iconAnchor:[9,9]})});
+  m.bindPopup(`<div class="pp"><span class="ptag" style="background:${col}">SEGURIDAD · ${esc(kind)}</span>
+    <h3>${esc(p.title||'Incidente')}</h3>
+    <div><span class="k">Estado (aprox.):</span> <b>${esc(p.state||'')}</b> · ${esc(fmtDate(p.date))}</div>
+    <div class="k" style="margin-top:3px">${esc(p.source||'')}</div>
+    <div style="margin-top:6px;font-size:11px;color:${C.muted}">Ubicación aproximada (centro del estado), detectada por texto del titular. No es el punto exacto del hecho.</div>
+    ${p.url?'<div style="margin-top:6px"><a href="'+esc(p.url)+'" target="_blank" rel="noopener" style="color:'+C.cyan+'">Ver nota ↗</a></div>':''}
+    </div>`);
+  return m;
+}
+
 function securityLayer(f){
   const [lon,lat]=f.geometry.coordinates, p=f.properties; const cnt=p.count||1;
   const c = cnt>=8?'#ff2d6f' : cnt>=3?'#ff5c8a' : '#e08aa6';
