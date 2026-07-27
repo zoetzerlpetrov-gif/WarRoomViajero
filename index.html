@@ -76,7 +76,7 @@
   .panel h2{font-family:var(--disp);font-size:12px;letter-spacing:3px;color:var(--amber);
     margin:0;padding:10px 12px;border-bottom:1px solid var(--line);display:flex;
     align-items:center;justify-content:space-between;background:rgba(255,176,0,.05)}
-  .panel h2 .ct{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:1px}
+  .panel h2 .ct{font-family:var(--mono);font-size:11px;color:var(--green);letter-spacing:.5px;font-weight:600}
   .panel .body{overflow:auto;padding:6px 6px 8px;flex:1;min-height:0}
 
   .layer{display:flex;align-items:center;gap:9px;padding:7px 8px;border-radius:2px;cursor:pointer;
@@ -119,19 +119,19 @@
   .threat{display:block;width:100%;text-align:left;background:none;border:0;cursor:pointer;
     padding:8px 9px;border-bottom:1px solid var(--line);color:var(--text);font-family:var(--mono)}
   .threat:hover{background:rgba(255,176,0,.07)}
-  .threat .top{display:flex;align-items:center;gap:7px;margin-bottom:3px}
+  .panel h2 .ct{f.threat .top{display:flex;align-items:flex-start;gap:7px;margin-bottom:3px}ont-family:var(--mono);font-size:11px;color:var(--green);letter-spacing:.5px;font-weight:600}
   .threat .tag{font-size:9px;font-family:var(--disp);font-weight:700;letter-spacing:1px;
     padding:1px 6px;border-radius:2px;color:#06100d}
-  .threat .sev{margin-left:auto;font-family:var(--disp);font-weight:800;font-size:14px}
-  .threat .ttl{font-size:12px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .threat .sev{margin-left:auto;flex:none;font-family:var(--disp);font-weight:800;font-size:14px}
+  .threat .ttl{font-size:12px;color:var(--text);white-space:normal;overflow:visible;word-break:break-word;flex:1;min-width:0;line-height:1.35}
   .threat .meta{font-size:9px;color:var(--muted);letter-spacing:.5px;margin-top:2px}
   .empty{padding:18px 12px;font-size:11px;color:var(--muted);text-align:center;line-height:1.6}
 
   /* ---- bottom ticker ---- */
   .hud-bottom{position:fixed;bottom:0;left:0;right:0;z-index:500;height:26px;display:flex;
     align-items:center;gap:12px;padding:0 46px;background:linear-gradient(0deg,rgba(7,11,10,.95),rgba(7,11,10,.4));
-    border-top:1px solid var(--line);font-size:10px;color:var(--muted);overflow:hidden;letter-spacing:1px}
-  .hud-bottom .tk{white-space:nowrap;animation:tick 48s linear infinite}
+    border-top:1px solid var(--line);font-size:13px;color:var(--text);overflow:hidden;letter-spacing:.4px}
+  .hud-bottom .tk{white-space:nowrap;animation:tick 68s linear infinite}
   @keyframes tick{from{transform:translateX(40vw)}to{transform:translateX(-100%)}}
   .hud-bottom b{color:var(--green)}
 
@@ -221,7 +221,7 @@
 </header>
 
 <aside class="panel panel-left" id="pleft">
-  <h2>CAPAS <span class="ct" id="lastsync">SYNC —</span></h2>
+  <h2>CAPAS <span class="ct" id="lastsync" title="Hora de la última actualización de datos (UTC); puede diferir de la hora programada">SYNC —</span></h2>
   <div class="body">
     <div class="card zone">
       <div class="ch">CONSOLA DE ZONA</div>
@@ -405,7 +405,7 @@ const LAYERS = [
   {id:'storms',  name:'Ciclones / Huracanes',sub:'NOAA NHC',         color:C.cyan,   group:G.storms},
   {id:'gdacs',   name:'Inundación · multi',  sub:'GDACS',            color:C.orange, group:G.gdacs},
   {id:'fires',   name:'Incendios',           sub:'NASA FIRMS · 24 h',color:C.red,    group:G.fires},
-  {id:'forecast',name:'Pronóstico 7 días',   sub:'Open-Meteo',       color:C.green,  group:G.forecast},
+  {id:'forecast',name:'Pronóstico / Alerta de lluvia', sub:'Open-Meteo · niveles MX',color:C.green,  group:G.forecast},
   {id:'air',     name:'Calidad del aire',     sub:'Open-Meteo · US AQI',color:'#cda2ff',group:G.air},
   {id:'security',name:'Seguridad (noticias)',  sub:'GDELT · señales 24 h',color:'#ff5c8a',group:G.security},
   {id:'secmap',  name:'Seguridad (mapa)',     sub:'Google News MX · aprox. estado',color:'#ff8a3d',group:G.secmap},
@@ -447,7 +447,7 @@ function fmtAgo(ms){ const s=(Date.now()-ms)/1000;
   if(s<3600) return Math.round(s/60)+' min'; if(s<86400) return Math.round(s/3600)+' h';
   return Math.round(s/86400)+' d'; }
 function esc(s){ return String(s==null?'':s).replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c])); }
-function fmtn(v){ return v==null?'—':(Math.round(v*10)/10); }
+function fmtn(v){ return v==null?'—':(Math.round(v*10)/10); } const COUNTRY_CANON={'mexico':'México','japon':'Japón','eeuu':'Estados Unidos','ee.uu.':'Estados Unidos'}; function canonCountry(c){ if(c==null||c==='') return c; const k=String(c).toLowerCase().trim(); return COUNTRY_CANON[k]||c; } function tcCategory(kt){ const w=parseFloat(kt); if(!isFinite(w)) return null; if(w>=137) return 'Categoría 5'; if(w>=113) return 'Categoría 4'; if(w>=96) return 'Categoría 3'; if(w>=83) return 'Categoría 2'; if(w>=64) return 'Categoría 1 (huracan)'; if(w>=34) return 'Tormenta tropical'; return 'Depresion tropical'; }
 
 // ============================ SISMOS (EN VIVO) ============================
 async function loadEarthquakes(){
@@ -479,13 +479,13 @@ async function loadEarthquakes(){
     const lon2=f2.geometry.coordinates[0], lat2=f2.geometry.coordinates[1];
     if(lat2<14.0 || lat2>33.0 || lon2<-119 || lon2>-85) return;
     const key = Math.round(lat2/gridDeg)+'_'+Math.round(lon2/gridDeg);
-    (swarmCells[key] = swarmCells[key]||[]).push({lat:lat2,lon:lon2,mag:f2.properties.mag||0});
+    (swarmCells[key] = swarmCells[key]||[]).push({lat:lat2,lon:lon2,mag:f2.properties.mag||0,place:f2.properties.place||''});
   });
   Object.values(swarmCells).forEach(function(cell){
     if(cell.length < 5) return;
     const clat = cell.reduce(function(s,c){return s+c.lat;},0)/cell.length;
     const clon = cell.reduce(function(s,c){return s+c.lon;},0)/cell.length;
-    const maxMag = Math.max.apply(null, cell.map(function(c){return c.mag;}));
+    const maxMag = Math.max.apply(null, cell.map(function(c){return c.mag;})); const rep = cell.slice().sort(function(a,b){return b.mag-a.mag;})[0]; const swCountry = canonCountry(sismoCountry(rep.place)); const finalCountry = (swCountry && swCountry!=='No determinado') ? swCountry : 'México';
     const circ = L.circle([clat,clon],{radius:50000,color:C.orange,weight:1.4,dashArray:'4 5',fill:false,interactive:false}).addTo(G.eq);
     circ.bindPopup('<div class="pp"><span class="ptag" style="background:'+C.orange+'">POSIBLE ENJAMBRE SÍSMICO</span>'+
       '<div><span class="k">Eventos agrupados:</span> <b>'+cell.length+'</b></div>'+
@@ -494,7 +494,7 @@ async function loadEarthquakes(){
     FEATS.eq.push({lat:clat,lon:clon,props:{},marker:circ});
     threats.push({score:60+cell.length*2, kind:'ENJAMBRE', color:C.orange, sev:cell.length+'x',
       title:'Posible enjambre sísmico ('+cell.length+' eventos)', meta:'Mag. máx '+maxMag.toFixed(1),
-      lat:clat, lon:clon, country:'México'});
+      lat:clat, lon:clon, country:finalCountry});
   });
 counts.eq=n; document.getElementById('cnt-eq').textContent=n;
 }
@@ -533,7 +533,7 @@ async function loadBaked(){
   let man={};
   try{ man = await (await fetch('./data/manifest.json',{cache:'no-store'})).json(); }catch(e){}
   document.getElementById('lastsync').textContent = man.generated
-    ? 'SYNC '+man.generated.slice(5,16).replace('T',' ')+'Z' : 'SYNC —';
+    ? 'Datos: '+man.generated.slice(5,16).replace('T',' ')+' UTC' : 'Datos: —';
     
   await Promise.all([
     bake('storms','storms.geojson', stormLayer),
@@ -573,15 +573,15 @@ async function bake(id,file,fn){
 
 function stormLayer(f){
   const [lon,lat]=f.geometry.coordinates, p=f.properties;
-  const m=L.marker([lat,lon],{icon:L.divIcon({className:'',html:'<div class="storm">🌀</div>',
+  const cat=tcCategory(p.intensity_kt); const m=L.marker([lat,lon],{icon:L.divIcon({className:'',html:'<div class="storm">🌀</div>',
     iconSize:[20,20],iconAnchor:[10,10]})});
-  m.bindPopup(`<div class="pp"><span class="ptag" style="background:${C.cyan}">${esc(p.class_label||'CICLÓN')}</span>
+  m.bindPopup(`<div class="pp"><span class="ptag" style="background:${C.cyan}">${esc(p.class_label||'CICLÓN')}${cat?(' · '+esc(cat)):''}</span>
     <h3>${esc(p.name)}</h3>
     <div><span class="k">Vientos:</span> <b>${esc(p.intensity_kt)} kt</b></div>
     <div><span class="k">Presión:</span> <b>${esc(p.pressure_mb)} mb</b></div>
     <div><span class="k">Movimiento:</span> <b>${esc(p.movement)}</b></div></div>`);
   threats.push({score:200+ (parseFloat(p.intensity_kt)||0), kind:'CICLÓN', color:C.cyan,
-    sev:'TC', title:esc(p.name+' · '+(p.class_label||'')), meta:esc(p.intensity_kt)+' kt', lat, lon, country:'Internacional (océano)'});
+    sev:'TC', title:esc(p.name+' · '+(cat||p.class_label||'')), meta:esc(p.intensity_kt)+' kt', lat, lon, country:'Internacional (océano)'});
   return m;
 }
 
@@ -657,7 +657,7 @@ const WMO = {0:'Despejado',1:'Mayormente despejado',2:'Parcial nublado',3:'Nubla
   82:'Chubascos violentos',95:'Tormenta',96:'Tormenta granizo',99:'Tormenta severa'};
 function forecastLayer(f){
   const [lon,lat]=f.geometry.coordinates, p=f.properties;
-  const cols=[C.green,C.amber,C.orange,C.red]; const c=cols[p.level||0];
+  const cols=[C.green,C.amber,C.orange,C.red,C.violet]; const c=cols[p.level||0];
   const m=L.circleMarker([lat,lon],{radius:6,color:c,weight:1.6,fillColor:c,fillOpacity:.25});
   const days=(p.days||[]);
   const maxR=Math.max(1,...days.map(d=>d.rain||0));
@@ -932,13 +932,13 @@ function renderThreats(){
   }
       const countrySel=document.getElementById('countryFilterSel');
     if(countrySel){
-      const countries=[...new Set(list.map(function(t){return t.country||'No determinado';}))].sort(function(a,b){return a.localeCompare(b,'es');});
+      const countries=[...new Set(list.map(function(t){return canonCountry(t.country)||'No determinado';}))].sort(function(a,b){return a.localeCompare(b,'es');});
       const prevSel=countrySel.value;
       countrySel.innerHTML='<option value="">Todos los países</option>'+countries.map(function(c){return '<option value="'+esc(c)+'">'+esc(c)+'</option>';}).join('');
       if(countries.indexOf(prevSel)>=0){ countrySel.value=prevSel; } else { COUNTRY_FILTER=null; }
       countrySel.onchange=function(){ COUNTRY_FILTER=this.value||null; renderThreats(); };
     }
-    if(COUNTRY_FILTER){ list=list.filter(function(t){return (t.country||'No determinado')===COUNTRY_FILTER;}); }
+    if(COUNTRY_FILTER){ list=list.filter(function(t){return (canonCountry(t.country)||'No determinado')===COUNTRY_FILTER;}); }
   document.getElementById('threat-ct').textContent=list.length;
   const tag=document.getElementById('threat-filter-tag');
   if(tag){
