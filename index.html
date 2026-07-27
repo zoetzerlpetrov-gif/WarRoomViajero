@@ -240,7 +240,9 @@
   <h2>AMENAZAS ACTIVAS <span class="ct" id="threat-ct">0</span><span class="ct" id="threat-filter-tag" style="display:none;cursor:pointer;color:var(--amber);margin-left:6px"></span></h2>
         <select id="countryFilterSel" style="flex:0 0 auto;width:100%;margin:6px 0 8px;background:var(--panel);color:var(--text);border:1px solid var(--line-strong);border-radius:6px;padding:6px;font:12px var(--mono);"><option value="">Todos los países</option></select>
   <div class="body" id="threats"><div class="empty">Cargando inteligencia…</div></div>
-</aside>
+    <div class="ct-sep2" style="margin:10px 0 4px;padding-top:8px;border-top:1px solid var(--line-strong);font:11px var(--mono);color:var(--muted);letter-spacing:.5px">SISMOS A VIGILAR <span class="ct" id="watch-ct">0</span></div>
+    <div class="cnote" style="font-size:10px;color:var(--muted);margin:0 0 6px;line-height:1.3">Magnitud moderada y poco profunda, cerca de una ciudad monitoreada. Indicador heurístico, no es una evaluación estructural oficial.</div>
+    <div class="body" id="seismicWatchBody"><div class="empty">Cargando…</div></div></aside>
 
 <button class="ptog l" id="tog-l">CAPAS</button>
 <button class="ptog r" id="tog-r">AMENAZAS</button>
@@ -392,7 +394,7 @@ const G = {
   secmap:  L.layerGroup().addTo(map),
   volcano: L.layerGroup().addTo(map),
 };
-const counts = {}; let threats = []; let cdmxAir = null; let advisories = {};
+const counts = {}; let threats = []; let seismicWatch = []; let cdmxAir = null; let advisories = {};
 const FEATS = {eq:[], storms:[], gdacs:[], fires:[], forecast:[], air:[], security:[], volcano:[], secmap:[]};
       const RADIUS_KM = 180;
 let ZONE_FILTER = null, zoneCircle = null;
@@ -453,7 +455,7 @@ function fmtn(v){ return v==null?'—':(Math.round(v*10)/10); } const COUNTRY_CA
 async function loadEarthquakes(){
   const r = await fetch(USGS,{cache:'no-store'});
   const gj = await r.json();
-    G.eq.clearLayers(); FEATS.eq=[];
+    G.eq.clearLayers(); FEATS.eq=[]; seismicWatch=[];
   let n=0;
   gj.features.forEach(f=>{
     const [lon,lat,depth] = f.geometry.coordinates;
@@ -469,7 +471,7 @@ async function loadEarthquakes(){
     if(m>=4.5 || tsu){
       threats.push({score:(tsu?100:0)+m*10, kind:'SISMO', color:eqColor(m), sev:m.toFixed(1),
         title:(tsu?'⚠ TSUNAMI · ':'')+esc(p.place||'Sismo'), meta:fmtAgo(p.time)+' · prof '+Math.round(depth)+' km',
-        lat, lon, country:sismoCountry(p.place)});
+        lat, lon, country:sismoCountry(p.place)});     } else if(m>=3.8 && m<4.5 && depth<=70){       let nearest=null, nd=Infinity;       (FEATS.forecast||[]).forEach(function(c){         const d=haversine(lat,lon,c.lat,c.lon);         if(d<nd){ nd=d; nearest=c; }       });       if(nearest && nd<=120){         seismicWatch.push({mag:m, depth:depth, place:p.place||'Sismo', time:p.time,           city:(nearest.props&&nearest.props.name)||'', dist:nd, lat, lon});       }
     }
   });
     // Detección de posibles enjambres sísmicos en México (heurística por grilla ~50km)
@@ -498,7 +500,27 @@ async function loadEarthquakes(){
   });
 counts.eq=n; document.getElementById('cnt-eq').textContent=n;
 }
-function eqPopup(p,depth,tsu,m){
+function renderSeismicWatch(){
+    const box=document.getElementById('seismicWatchBody');
+    const ctEl=document.getElementById('watch-ct');
+    if(!box) return;
+    const list=seismicWatch.slice().sort(function(a,b){return b.mag-a.mag;});
+    if(ctEl) ctEl.textContent=list.length||'0';
+    if(!list.length){
+          box.innerHTML='<div class="empty">Sin sismos moderados cerca de zonas monitoreadas.</div>';
+          return;
+    }
+    box.innerHTML='';
+    list.slice(0,20).forEach(function(t){
+      const b=document.createElement('button'); b.className='threat';
+      b.innerHTML='<div class="top"><span class="tag" style="background:'+C.amber+'">VIGILANCIA</span>'
+        +'<span class="ttl">'+esc(t.place)+'</span><span class="sev" style="color:'+C.amber+'">M'+t.mag.toFixed(1)+'</span></div>'
+                       +'<div class="meta">'+fmtAgo(t.time)+' · prof '+Math.round(t.depth)+' km · ~'+Math.round(t.dist)+' km de '+esc(t.city)+'</div>';
+      b.onclick=function(){ map.setView([t.lat,t.lon],9); };
+          box.appendChild(b);
+    });
+}
+  function eqPopup(p,depth,tsu,m){
   return `<div class="pp"><span class="ptag" style="background:${eqColor(m)}">SISMO M${m.toFixed(1)}</span>
     ${tsu?'<span class="ptag" style="background:'+C.cyan+';margin-left:5px">AVISO TSUNAMI</span>':''}
     <h3>${esc(p.place||'Evento sísmico')}</h3>
@@ -978,6 +1000,7 @@ async function refreshLive(){
   catch(e){ setStatus('ERROR SISMOS — reintentando', true); }
   if(map.hasLayer(G.alerts)) await loadAlerts();
   renderThreats();
+    renderSeismicWatch();
 }
 async function init(){
   buildLayerUI();
@@ -985,6 +1008,7 @@ async function init(){
   await loadBaked();           // capas 2x/día
   await refreshLive();         // sismos/alertas en vivo
   renderThreats();
+    renderSeismicWatch();
   setInterval(refreshLive, LIVE_REFRESH);
   let t=LIVE_REFRESH/1000;
   setInterval(()=>{ t--; if(t<=0)t=LIVE_REFRESH/1000;
