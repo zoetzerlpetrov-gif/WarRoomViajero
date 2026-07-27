@@ -398,15 +398,17 @@ GRID = [
 ]
 
 def risk_level(max_rain, max_gust):
-    # Devuelve (nivel 0-3, etiqueta)
+    # Devuelve (nivel 0-4, etiqueta) estilo alerta MX (Verde/Amarilla/Naranja/Roja/Morada)
     lvl = 0
-    if max_rain >= 50 or max_gust >= 90:
+    if max_rain >= 70 or max_gust >= 110:
+        lvl = 4
+    elif max_rain >= 50 or max_gust >= 90:
         lvl = 3
     elif max_rain >= 25 or max_gust >= 65:
         lvl = 2
     elif max_rain >= 10 or max_gust >= 45:
         lvl = 1
-    return lvl, ["Tranquilo", "Vigilancia", "Riesgo", "Severo"][lvl]
+    return lvl, ["Verde (sin riesgo relevante)", "Amarilla (vigilancia)", "Naranja (riesgo)", "Roja (peligro)", "Morada (extraordinario)"][lvl]
 
 def fetch_forecast():
     feats = []
