@@ -562,7 +562,7 @@ function checkNewEvents(){
   if(hasNew){ if(hasUrgent) playUrgentEventSound(); else playNewEventSound(); }
   seenEventKeys=curKeys;
 }
-function fmtSpeed(kt){const v=parseFloat(kt); if(isNaN(v)) return '—'; return unitsImperial ? Math.round(v*1.15078)+' mph' : Math.round(v*1.852)+' km/h';}function fmtSpeedKmh(kmh){const v=parseFloat(kmh); if(isNaN(v)) return '—'; return unitsImperial ? Math.round(v*0.621371)+' mph' : Math.round(v)+' km/h';}
+function fmtSpeed(kt){const v=parseFloat(kt); if(isNaN(v)) return '—'; return unitsImperial ? Math.round(v*1.15078)+' mph' : Math.round(v*1.852)+' km/h';}function fmtSpeedKmh(kmh){const v=parseFloat(kmh); if(isNaN(v)) return '—'; return unitsImperial ? Math.round(v*0.621371)+' mph' : Math.round(v)+' km/h';}function fmtDist(km){const v=parseFloat(km); if(isNaN(v)) return '—'; return unitsImperial ? (v*0.621371).toFixed(1)+' mi' : Math.round(v)+' km';}function fmtAltFt(ft){const v=parseFloat(ft); if(isNaN(v)) return '—'; return unitsImperial ? Math.round(v)+' ft' : Math.round(v*0.3048)+' m';}function fmtRain(mm){const v=parseFloat(mm); if(isNaN(v)) return '—'; return unitsImperial ? (v/25.4).toFixed(1)+' in' : Math.round(v)+' mm';}function fmtPressure(mb){const v=parseFloat(mb); if(isNaN(v)) return '—'; return unitsImperial ? (v*0.02953).toFixed(2)+' inHg' : Math.round(v)+' mb';}function eqPopup(p,depth,tsu,m){
   return `<div class="pp"><span class="ptag" style="background:${eqColor(m)}">SISMO M${m.toFixed(1)}</span>
     ${tsu?'<span class="ptag" style="background:'+C.cyan+';margin-left:5px">AVISO TSUNAMI</span>':''}
     <h3>${esc(p.place||'Evento sísmico')}</h3>
