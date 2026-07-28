@@ -79,6 +79,16 @@ def line_feature(coords, props):
     }
 
 
+def polygon_feature(ring, props):
+    coords = [[round(float(lo), 4), round(float(la), 4)] for lo, la in ring]
+    if coords and coords[0] != coords[-1]:
+        coords.append(coords[0])
+    return {
+        "type": "Feature",
+        "geometry": {"type": "Polygon", "coordinates": [coords]},
+        "properties": props,
+    }
+
 def _tc_category(wind_kt):
     try:
         w = float(wind_kt)
@@ -101,6 +111,28 @@ def _kmz_to_kml_text(url):
             return ""
         return z.read(names[0]).decode("utf-8", errors="replace")
 
+
+def _parse_wind_radii_kml(text):
+    out = []
+    for block in re.findall(r"<Placemark>(.*?)</Placemark>", text, re.S):
+        nm = re.search(r"<name>\s*(\d+)\s*</name>", block)
+        if not nm:
+            continue
+        cm = re.search(r"<coordinates>\s*([\s\S]*?)\s*</coordinates>", block)
+        if not cm:
+            continue
+        ring = []
+        for pair in cm.group(1).split():
+            parts = pair.split(",")
+            if len(parts) < 2:
+                continue
+            try:
+                ring.append((float(parts[0]), float(parts[1])))
+            except ValueError:
+                continue
+        if len(ring) >= 3:
+            out.append({"kt": int(nm.group(1)), "ring": ring})
+    return out
 
 def _parse_forecast_kml(text):
     pts = []
@@ -287,6 +319,7 @@ def fetch_storm_tracks():
     for s in data.get("activeStorms", []):
         sid = s.get("id", "")
         sname = s.get("name", "Sin nombre")
+        fpts = []
 
         try:
             ft = (s.get("forecastTrack") or {}).get("kmzFile")
@@ -305,6 +338,36 @@ def fetch_storm_tracks():
                         }))
         except Exception as e:
             print(f"  [trayectorias] fallo pronostico {sname}: {e}")
+
+        try:
+            iw = (s.get("initialWindExtent") or {}).get("kmzFile")
+            if iw:
+                for rg in _parse_wind_radii_kml(_kmz_to_kml_text(iw)):
+                    feats.append(polygon_feature(rg["ring"], {
+                        "layer": "storm_track", "kind": "wind_radii_current",
+                        "storm_id": sid, "storm_name": sname, "wind_kt": rg["kt"],
+                    }))
+        except Exception as e:
+            print(f"  [trayectorias] fallo radios de viento actuales {sname}: {e}")
+
+        try:
+            fw = (s.get("forecastWindRadiiGIS") or {}).get("kmzFile")
+            if fw and fpts:
+                groups = _parse_wind_radii_kml(_kmz_to_kml_text(fw))
+                per_period = [groups[i:i+3] for i in range(0, len(groups), 3)]
+                future_pts = [p for p in fpts if p.get("hours")]
+                for i, grp in enumerate(per_period):
+                    if i >= len(future_pts):
+                        break
+                    target = future_pts[i]
+                    for rg in grp:
+                        feats.append(polygon_feature(rg["ring"], {
+                            "layer": "storm_track", "kind": "wind_radii_forecast",
+                            "storm_id": sid, "storm_name": sname, "wind_kt": rg["kt"],
+                            "label": target.get("label"), "valid_text": target.get("valid_text"),
+                        }))
+        except Exception as e:
+            print(f"  [trayectorias] fallo radios de viento pronostico {sname}: {e}")
 
         try:
             bt = (s.get("bestTrackGIS") or {}).get("kmzFile")
