@@ -683,7 +683,23 @@ async function loadStormTracks(){
         }
         m.bindPopup(popup);
         FEATS.storms.push({lat:lat,lon:lon,props:p,marker:m});
-      }
+      } else if(f.geometry.type==='Polygon'){
+        const ring = f.geometry.coordinates[0]||[];
+        const latlngs = ring.map(function(c){return [c[1],c[0]];});
+        const isForecastR = p.kind==='wind_radii_forecast';
+        const kt = p.wind_kt;
+        const color = kt>=64?C.red:(kt>=50?C.orange:C.amber);
+        const pg = L.polygon(latlngs,{color:color, weight:1.2, opacity:.55,
+          fillColor:color, fillOpacity:.08, dashArray:isForecastR?'4 4':null}).addTo(G.storms);
+        const windLbl = kt>=64?'Fuerza de huracán':(kt>=50?'Tormenta fuerte':'Tormenta tropical');
+        let rpopup = '<div class="pp"><span class="ptag" style="background:'+color+'">'+(isForecastR?'PRONÓSTICO ':'ACTUAL ')+'VIENTO ≥'+kt+'kt</span>'+
+          '<h3>'+esc(p.storm_name||'')+'</h3>'+
+          '<div><span class="k">Alcance de viento:</span> <b>'+windLbl+'</b></div>'+
+          '<div><span class="k">Umbral:</span> <b>'+fmtSpeed(kt)+'</b></div>'+
+          (isForecastR ? ('<div><span class="k">Válido:</span> <b>'+esc(p.valid_text||p.label||'')+'</b></div>') : '') +
+          '</div>';
+        pg.bindPopup(rpopup);
+  }
     });
   }catch(e){ /* capa opcional: silencioso si falla */ }
 }
