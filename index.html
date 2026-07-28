@@ -575,7 +575,7 @@ function checkNewEvents(){
   if(hasNew){ if(hasUrgent) playUrgentEventSound(); else playNewEventSound(); }
   seenEventKeys=curKeys;
 }
-function fmtSpeed(kt){const v=parseFloat(kt); if(isNaN(v)) return '—'; return unitsImperial ? Math.round(v*1.15078)+' mph' : Math.round(v*1.852)+' km/h';}function fmtSpeedKmh(kmh){const v=parseFloat(kmh); if(isNaN(v)) return '—'; return unitsImperial ? Math.round(v*0.621371)+' mph' : Math.round(v)+' km/h';}function fmtDist(km){const v=parseFloat(km); if(isNaN(v)) return '—'; return unitsImperial ? (v*0.621371).toFixed(1)+' mi' : Math.round(v)+' km';}function fmtAltFt(ft){const v=parseFloat(ft); if(isNaN(v)) return '—'; return unitsImperial ? Math.round(v)+' ft' : Math.round(v*0.3048)+' m';}function fmtRain(mm){const v=parseFloat(mm); if(isNaN(v)) return '—'; return unitsImperial ? (v/25.4).toFixed(1)+' in' : Math.round(v)+' mm';}function fmtPressure(mb){const v=parseFloat(mb); if(isNaN(v)) return '—'; return unitsImperial ? (v*0.02953).toFixed(2)+' inHg' : Math.round(v)+' mb';}function eqPopup(p,depth,tsu,m){
+function fmtSpeed(kt){const v=parseFloat(kt); if(isNaN(v)) return '—'; return unitsImperial ? Math.round(v*1.15078)+' mph' : Math.round(v*1.852)+' km/h';}function fmtSpeedKmh(kmh){const v=parseFloat(kmh); if(isNaN(v)) return '—'; return unitsImperial ? Math.round(v*0.621371)+' mph' : Math.round(v)+' km/h';}function fmtDist(km){const v=parseFloat(km); if(isNaN(v)) return '—'; return unitsImperial ? (v*0.621371).toFixed(1)+' mi' : Math.round(v)+' km';}function fmtAltFt(ft){const v=parseFloat(ft); if(isNaN(v)) return '—'; return unitsImperial ? Math.round(v)+' ft' : Math.round(v*0.3048)+' m';}function fmtRain(mm){const v=parseFloat(mm); if(isNaN(v)) return '—'; return unitsImperial ? (v/25.4).toFixed(1)+' in' : Math.round(v)+' mm';}function fmtPressure(mb){const v=parseFloat(mb); if(isNaN(v)) return '—'; return unitsImperial ? (v*0.02953).toFixed(2)+' inHg' : Math.round(v)+' mb';}function fmtTemp(c){const v=parseFloat(c); if(isNaN(v)) return '—'; return unitsImperial ? Math.round(v*9/5+32)+'°F' : Math.round(v)+'°C';}function eqPopup(p,depth,tsu,m){
   return `<div class="pp"><span class="ptag" style="background:${eqColor(m)}">SISMO M${m.toFixed(1)}</span>
     ${tsu?'<span class="ptag" style="background:'+C.cyan+';margin-left:5px">AVISO TSUNAMI</span>':''}
     <h3>${esc(p.place||'Evento sísmico')}</h3>
@@ -763,12 +763,20 @@ function forecastLayer(f){
     <h3>${esc(p.name)}</h3>
     <div><span class="k">Lluvia máx 7d:</span> <b>${fmtRain(p.max_rain_mm)}</b></div>
     <div><span class="k">Ráfaga máx 7d:</span> <b>${fmtSpeedKmh(p.max_gust_kmh)}</b></div>
+    <div><span class="k">Temp. máx/mín 7d:</span> <b>${fmtTemp(p.max_tmax_c)} / ${fmtTemp(p.min_tmin_c)}</b></div>
+    ${p.temp_level ? ('<div style="margin-top:4px"><span class="ptag" style="background:'+(p.temp_kind==='calor'?C.red:C.cyan)+'">'+esc(p.temp_label||'')+'</span></div>') : ''}
     <div class="k" style="margin-top:7px;font-size:10px">LLUVIA DIARIA (${unitsImperial?'in':'mm'})</div>
     <div class="fc">${bars}</div></div>`,{maxWidth:300});
   if((p.level||0)>=2){
     threats.push({score:40+(p.level*15), kind:'CLIMA', color:c, sev:'7d',
       title:esc(p.name)+' · '+esc(p.level_label),
       meta:fmtRain(p.max_rain_mm)+' · '+fmtSpeedKmh(p.max_gust_kmh), lat, lon, country:CITY_COUNTRY[p.name]||'No determinado'});
+  }
+  if((p.temp_level||0)>=1){
+    const tc = p.temp_kind==='calor'?C.red:C.cyan;
+    threats.push({score:35+(p.temp_level*20), kind:(p.temp_kind==='calor'?'CALOR':'FRÍO'), color:tc, sev:p.temp_level+'x',
+      title:esc(p.name)+' · '+esc(p.temp_label||''),
+      meta:(p.temp_kind==='calor'?'Máx '+fmtTemp(p.max_tmax_c):'Mín '+fmtTemp(p.min_tmin_c)), lat, lon, country:CITY_COUNTRY[p.name]||'No determinado'});
   }
   return m;
 }
