@@ -469,6 +469,19 @@ async function loadEarthquakes(){
       weight:1.4, fillColor:eqColor(m), fillOpacity:.35});
     cm.bindPopup(eqPopup(p,depth,tsu,m));
         cm.addTo(G.eq); n++; FEATS.eq.push({lat:lat,lon:lon,props:p,marker:cm});
+    if(tsu){
+      const tsuSpeedKmh = 700;
+      [1,2,3].forEach(function(hrs){
+        const radiusKm = tsuSpeedKmh*hrs;
+        const ring = L.circle([lat,lon],{radius:radiusKm*1000, color:C.cyan, weight:1,
+          opacity:.5, fillColor:C.cyan, fillOpacity:.03, dashArray:'4 6'}).addTo(G.eq);
+        ring.bindPopup('<div class="pp"><span class="ptag" style="background:'+C.cyan+'">ESTIMADO '+hrs+'h</span>'+
+          '<h3>Posible alcance de tsunami</h3>'+
+          '<div><span class="k">Origen:</span> <b>'+esc(p.place||'')+'</b></div>'+
+          '<div><span class="k">Radio aproximado:</span> <b>'+fmtDist(radiusKm)+'</b></div>'+
+          '<div style="margin-top:6px;font-size:11px;color:'+C.muted+'">Estimación gruesa de propagación en aguas profundas (~700 km/h). No considera batimetría, costa ni difracción. Consulta siempre la alerta oficial de PTWC/NOAA para tiempos de llegada reales.</div></div>');
+      });
+    }
     if(tsu || m>=4.5 || recent){
             const pm=L.marker([lat,lon],{icon:pingIcon(tsu?'tsu':'')}).addTo(G.eq).bindPopup(eqPopup(p,depth,tsu,m)); FEATS.eq.push({lat:lat,lon:lon,props:p,marker:pm});
     }
