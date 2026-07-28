@@ -473,6 +473,30 @@ def risk_level(max_rain, max_gust):
         lvl = 1
     return lvl, ["Verde (sin riesgo relevante)", "Amarilla (vigilancia)", "Naranja (riesgo)", "Roja (peligro)", "Morada (extraordinario)"][lvl]
 
+def temp_risk(max_tmax, min_tmin):
+    # Clasifica alerta de temperatura (calor/frio) por umbrales fijos en grados C
+    heat_lvl, heat_label = 0, None
+    if max_tmax is not None:
+        if max_tmax >= 45:
+            heat_lvl, heat_label = 3, "Severo (calor extremo)"
+        elif max_tmax >= 40:
+            heat_lvl, heat_label = 2, "Riesgo (calor intenso)"
+        elif max_tmax >= 35:
+            heat_lvl, heat_label = 1, "Vigilancia (calor)"
+    cold_lvl, cold_label = 0, None
+    if min_tmin is not None:
+        if min_tmin <= -10:
+            cold_lvl, cold_label = 3, "Severo (frio extremo)"
+        elif min_tmin <= 0:
+            cold_lvl, cold_label = 2, "Riesgo (helada)"
+        elif min_tmin <= 5:
+            cold_lvl, cold_label = 1, "Vigilancia (frio)"
+    if heat_lvl >= cold_lvl and heat_lvl > 0:
+        return heat_lvl, heat_label, "calor"
+    if cold_lvl > 0:
+        return cold_lvl, cold_label, "frio"
+    return 0, None, None
+
 def fetch_forecast():
     feats = []
     try:
@@ -482,7 +506,7 @@ def fetch_forecast():
             "https://api.open-meteo.com/v1/forecast"
             f"?latitude={lats}&longitude={lons}"
             "&daily=precipitation_sum,precipitation_probability_max,"
-            "wind_speed_10m_max,wind_gusts_10m_max,weather_code,temperature_2m_max"
+            "wind_speed_10m_max,wind_gusts_10m_max,weather_code,temperature_2m_max,temperature_2m_min"
             "&forecast_days=7&timezone=auto"
         )
         res = json.loads(http_get(url))
@@ -498,10 +522,14 @@ def fetch_forecast():
             gust = daily.get("wind_gusts_10m_max", []) or []
             wind = daily.get("wind_speed_10m_max", []) or []
             tmax = daily.get("temperature_2m_max", []) or []
+            tmin = daily.get("temperature_2m_min", []) or []
             wcode = daily.get("weather_code", []) or []
             dates = daily.get("time", []) or []
             max_rain = max(rain) if rain else 0
             max_gust = max(gust) if gust else 0
+            max_tmax = max(tmax) if tmax else None
+            min_tmin = min(tmin) if tmin else None
+            temp_lvl, temp_label, temp_kind = temp_risk(max_tmax, min_tmin)
             lvl, label = risk_level(max_rain, max_gust)
             days = []
             for d in range(len(dates)):
@@ -512,6 +540,7 @@ def fetch_forecast():
                     "wind": wind[d] if d < len(wind) else None,
                     "gust": gust[d] if d < len(gust) else None,
                     "tmax": tmax[d] if d < len(tmax) else None,
+                    "tmin": tmin[d] if d < len(tmin) else None,
                     "code": wcode[d] if d < len(wcode) else None,
                 })
             feats.append(feature(lon, lat, {
@@ -521,6 +550,11 @@ def fetch_forecast():
                 "level_label": label,
                 "max_rain_mm": round(max_rain, 1),
                 "max_gust_kmh": round(max_gust, 1),
+                "max_tmax_c": round(max_tmax, 1) if max_tmax is not None else None,
+                "min_tmin_c": round(min_tmin, 1) if min_tmin is not None else None,
+                "temp_level": temp_lvl,
+                "temp_label": temp_label,
+                "temp_kind": temp_kind,
                 "days": days,
             }))
         print(f"  [pronostico] puntos: {len(feats)}")
