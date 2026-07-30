@@ -915,7 +915,7 @@ function severeMapLayer(f){
     ${p.url?'<div style="margin-top:6px"><a href="'+esc(p.url)+'" target="_blank" rel="noopener" style="color:'+C.cyan+'">Ver noticia ↗</a></div>':''}
     </div>`);
   if(p.severe) threats.push({score:85, kind:kind, color:col, sev:'fuerte',
-    title:esc(p.title||('Evento de '+kind)), meta:(p.state||'')+' · '+fmtDate(p.date), lat, lon, country:'México'});
+    title:(kind==='TORNADO'?'Tornado severo':'Granizo severo')+' · '+esc(p.state||''), meta:fmtDate(p.date)+' · '+esc(p.source||''), lat, lon, country:'México'});
   return m;
 }
 
