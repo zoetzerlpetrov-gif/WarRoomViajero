@@ -11,7 +11,7 @@ Hay dos tipos de capas, por una razón de diseño:
 | Tipo | Capas | Actualización | De dónde sale |
 |------|-------|---------------|---------------|
 | **En vivo** | Sismos, Alertas NWS (EE.UU.), Clima espacial* | Cada **60 s** / al cargar | USGS, weather.gov, NOAA SWPC |
-| **Horneadas** | Ciclones, Incendios, Inundaciones (GDACS), Pronóstico 7d, Calidad del aire, **Seguridad (noticias)**, **Avisos de viaje**, Volcanes | **2×/día** (6am y 6pm CDMX) | NOAA NHC, NASA FIRMS, GDACS, Open-Meteo, GDELT, travel-advisory.info |
+| **Horneadas** | Ciclones, Incendios, Inundaciones (GDACS), Pronóstico 7d, Calidad del aire, **Seguridad (noticias)**, **Granizo/Tornado (noticias)**, **Avisos de viaje**, Volcanes | **2×/día** (6am y 6pm CDMX) | NOAA NHC, NASA FIRMS, GDACS, Open-Meteo, GDELT, travel-advisory.info |
 
 \* El clima espacial (llamaradas solares / tormentas geomagnéticas) se hornea 2×/día y además
 intenta refrescarse en vivo desde la NOAA al abrir el mapa.
@@ -21,6 +21,10 @@ seguridad** (titulares de bloqueos, asaltos, crimen organizado, etc. de Google N
 una **Consola de zona**: escribes una ciudad, estado o país y obtienes su **nivel de riesgo
 oficial** (avisos de viaje de varios gobiernos), cuántas **señales de seguridad** hay cerca en
 las noticias de las últimas 24 h, y enlaces para verificar en la fuente.
+
+Cuando aparece una amenaza nueva (que no se había visto antes en este navegador), su marcador
+en el mapa **destella con un halo blanco** durante unos segundos para diferenciarlo del resto;
+esa detección de "nuevo" se guarda en `localStorage` del navegador, no en el servidor.
 
 Los eventos urgentes (un sismo, un aviso de tsunami) no pueden esperar al horario de las
 6 pm, así que el navegador los consulta directo y en tiempo real. El resto (pronóstico,
@@ -89,6 +93,7 @@ python3 scripts/fetch_data.py
 - **Calidad del aire (US AQI, PM2.5, PM10, ozono…):** [Open-Meteo Air Quality](https://open-meteo.com/en/docs/air-quality-api) (sin API key).
 - **Clima espacial (llamaradas R, radiación S, geomagnético G, Kp):** [NOAA SWPC](https://www.swpc.noaa.gov) (sin API key).
 - **Seguridad (señales de noticias):** [GDELT](https://www.gdeltproject.org) (GEO + DOC, 100+ idiomas, sin key) y Google News RSS.
+- **Granizo / tornado (señales de noticias):** mismo mecanismo que Seguridad (GDELT GEO/DOC + Google News RSS), buscando menciones de granizo, granizada, pedrisco, tornado y tromba marina. Un titular se marca como "severo" si el texto menciona tamaño (cm/pulgadas, comparaciones con pelotas/huevos), daños o alerta roja; es una **detección heurística por palabras clave**, no una medición meteorológica oficial. Para confirmar cualquier evento, consulta al SMN o Protección Civil de tu estado.
 - **Avisos / nivel de riesgo por país:** [travel-advisory.info](https://www.travel-advisory.info) (varios gobiernos, sin key).
 - **Volcanes:** lista curada con enlaces a CENAPRED y al Global Volcanism Program.
 
@@ -119,7 +124,8 @@ index.html                      la app (mapa + interfaz táctica)
 vendor/leaflet.*                Leaflet incluido (sin CDN)
 scripts/fetch_data.py           obtiene y normaliza los datos horneados
 .github/workflows/update.yml    corre el script 2×/día y commitea /data
-data/*.geojson                  datos generados (incluye airquality.geojson, security.geojson)
+data/*.geojson                  datos generados (incluye airquality.geojson, security.geojson,
+                                 severe_weather.geojson, severe_weather_map.geojson)
 data/advisories.json            nivel de riesgo por país (avisos de viaje)
 data/security_feed.json         titulares de seguridad (Google News + GDELT)
 data/space.json                 estado del clima espacial (R/S/G, Kp, llamarada)
