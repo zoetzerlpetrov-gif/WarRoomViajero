@@ -974,6 +974,99 @@ def fetch_security_feed():
     write_geojson("security_map.geojson", map_feats, {"note": "Ubicacion aproximada a nivel estado, detectada por texto del titular. No es la ubicacion exacta del incidente."})
 
 # -------------------------------------------------------------------------
+# 10) CLIMA SEVERO (GRANIZO / TORNADO) - senales de noticias (GDELT + Google News)
+#     NOTA: son senales de cobertura noticiosa, NO eventos confirmados ni una
+#     medicion oficial de tamano de granizo. El SMN / Proteccion Civil son la
+#     fuente oficial para confirmar cualquier evento.
+# -------------------------------------------------------------------------
+
+HAIL_QUERY = ('(granizo OR granizada OR pedrisco OR "tormenta de granizo" OR '
+              '"lluvia de granizo" OR hailstorm OR "hail storm")')
+TORNADO_QUERY = '(tornado OR "tromba marina" OR waterspout OR torbellino)'
+
+SEVERE_SIZE_KEYWORDS = [
+    "tamano de", "pelota de golf", "pelota de tenis", "bola de billar",
+    "del tamano", "huevo", "gran tamano", "granizo grande", "grande como",
+    "destrozo", "danos por granizo", "fuerte granizada", "intensa granizada",
+    "granizo de gran tamano", "cm de diametro",
+]
+
+
+def _fetch_gdelt_geo(query, layer):
+    feats = []
+    try:
+        q = urllib.parse.quote(query)
+        url = f"https://api.gdeltproject.org/api/v2/geo/geo?query={q}&format=GeoJSON&mode=PointData&timespan=1440"
+        gj = json.loads(http_get(url))
+        for f in gj.get("features", []):
+            g = f.get("geometry") or {}
+            c = g.get("coordinates")
+            if not c or len(c) < 2:
+                continue
+            p = f.get("properties", {}) or {}
+            cnt = int(p.get("count") or 1)
+            name = p.get("name") or p.get("location") or ""
+            feats.append((cnt, feature(c[0], c[1], {"layer": layer, "name": name, "count": cnt})))
+        print(f"  [{layer}] puntos: {len(gj.get('features', []))}")
+    except Exception as e:
+        print(f"  [{layer}] geo fallo: {e}")
+    return feats
+
+
+def fetch_severe_weather():
+    # 1) Puntos globales aproximados (GDELT GEO) - granizo + tornado en un solo mapa
+    pts = []
+    pts += _fetch_gdelt_geo(HAIL_QUERY, "hail")
+    pts += _fetch_gdelt_geo(TORNADO_QUERY, "tornado")
+    pts.sort(key=lambda t: t[0], reverse=True)
+    feats = [f for _, f in pts[:300]]
+    write_geojson("severe_weather.geojson", feats)
+
+    # 2) Titulares MX (Google News) con geocodificacion a nivel estado + bandera de severidad
+    map_feats = []
+    for kind, gnews_q in (
+        ("GRANIZO", "granizo OR granizada OR pedrisco"),
+        ("TORNADO", 'tornado OR "tromba marina"'),
+    ):
+        items = []
+        try:
+            gq = urllib.parse.quote(gnews_q)
+            rss = http_get(f"https://news.google.com/rss/search?q={gq}&hl=es-419&gl=MX&ceid=MX:es")
+            root = ET.fromstring(rss)
+            for it in root.iter("item"):
+                src_el = it.find("source")
+                items.append({
+                    "title": it.findtext("title") or "",
+                    "url": it.findtext("link") or "",
+                    "date": it.findtext("pubDate") or "",
+                    "source": (src_el.text if src_el is not None else "") or "Google News",
+                })
+            print(f"  [severo] google news {kind}: {len(items)}")
+        except Exception as e:
+            print(f"  [severo] google news {kind} fallo: {e}")
+        for it in items:
+            title = it.get("title") or ""
+            state = _detect_mx_state(title)
+            if not state:
+                continue
+            base_lat, base_lon = MX_STATE_CENTROIDS[state]
+            lat, lon = _jitter(base_lat, base_lon, title)
+            nt = _normalize_text(title)
+            severe = any(kw in nt for kw in SEVERE_SIZE_KEYWORDS)
+            map_feats.append(feature(lon, lat, {
+                "title": title, "url": it.get("url") or "", "date": it.get("date") or "",
+                "source": it.get("source") or "", "state": state, "kind": kind,
+                "severe": severe,
+            }))
+    print(f"  [severo] mapa MX: {len(map_feats)} ubicados")
+    write_geojson("severe_weather_map.geojson", map_feats, {
+        "note": "Ubicacion aproximada a nivel estado, detectada por texto del titular. No es el punto exacto del evento. 'severe' es una deteccion heuristica de palabras clave (tamano/danos), no una medicion oficial.",
+    })
+    return len(feats) + len(map_feats)
+
+
+
+# -------------------------------------------------------------------------
 # Orquestacion
 # -------------------------------------------------------------------------
 
@@ -991,6 +1084,7 @@ def main():
         ("airquality", fetch_airquality),
         ("space", fetch_space),
         ("security", fetch_security),
+        ("severe_weather", fetch_severe_weather),
         ("advisories", fetch_advisories),
         ("volcanoes", fetch_volcanoes),
     ]
