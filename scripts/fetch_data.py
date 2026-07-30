@@ -988,7 +988,10 @@ SEVERE_SIZE_KEYWORDS = [
     "tamano de", "pelota de golf", "pelota de tenis", "bola de billar",
     "del tamano", "huevo", "gran tamano", "granizo grande", "grande como",
     "destrozo", "danos por granizo", "fuerte granizada", "intensa granizada",
-    "granizo de gran tamano", "cm de diametro",
+    "granizo de gran tamano", "cm de diametro", "centimetro", "milimetro",
+    "alerta roja", "arboles caidos", "arboles derribados", "historica granizada",
+    "granizada historica", "fuerte tormenta con granizo", "impactante granizada",
+    "diametro",
 ]
 
 
