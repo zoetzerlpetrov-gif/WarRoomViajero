@@ -1,60 +1,60 @@
 {
-  "generated": "2026-07-31T13:50:31Z",
+  "generated": "2026-08-01T02:12:42Z",
   "sources": {
     "fires": {
-      "count": 1500,
-      "updated": "2026-07-31T13:50:34Z",
-      "seconds": 2.2
+      "count": 0,
+      "updated": "2026-08-01T02:14:13Z",
+      "seconds": 90.1
     },
     "storms": {
       "count": 1,
-      "updated": "2026-07-31T13:50:34Z",
-      "seconds": 0.1
+      "updated": "2026-08-01T02:14:13Z",
+      "seconds": 0.3
     },
     "storm_tracks": {
-      "count": 31,
-      "updated": "2026-07-31T13:50:35Z",
-      "seconds": 1.2
+      "count": 30,
+      "updated": "2026-08-01T02:14:13Z",
+      "seconds": 0.2
     },
     "gdacs": {
-      "count": 15,
-      "updated": "2026-07-31T13:50:39Z",
-      "seconds": 4.1
+      "count": 0,
+      "updated": "2026-08-01T02:14:59Z",
+      "seconds": 45.4
     },
     "forecast": {
       "count": 533,
-      "updated": "2026-07-31T13:50:41Z",
-      "seconds": 2.0
+      "updated": "2026-08-01T02:15:00Z",
+      "seconds": 1.4
     },
     "airquality": {
       "count": 533,
-      "updated": "2026-07-31T13:50:43Z",
-      "seconds": 2.1
+      "updated": "2026-08-01T02:15:01Z",
+      "seconds": 1.3
     },
     "space": {
       "count": 0,
-      "updated": "2026-07-31T13:50:43Z",
-      "seconds": 0.1
+      "updated": "2026-08-01T02:15:01Z",
+      "seconds": 0.3
     },
     "security": {
       "count": 0,
-      "updated": "2026-07-31T13:51:08Z",
-      "seconds": 24.4
+      "updated": "2026-08-01T02:15:28Z",
+      "seconds": 26.5
     },
     "severe_weather": {
-      "count": 37,
-      "updated": "2026-07-31T13:51:29Z",
-      "seconds": 21.0
+      "count": 26,
+      "updated": "2026-08-01T02:15:50Z",
+      "seconds": 21.9
     },
     "advisories": {
       "count": 0,
-      "updated": "2026-07-31T13:51:29Z",
-      "seconds": 0.8
+      "updated": "2026-08-01T02:15:50Z",
+      "seconds": 0.4
     },
     "volcanoes": {
       "count": 18,
-      "updated": "2026-07-31T13:51:30Z",
-      "seconds": 0.2
+      "updated": "2026-08-01T02:15:50Z",
+      "seconds": 0.1
     }
   }
 }
