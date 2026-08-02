@@ -1,60 +1,60 @@
 {
-  "generated": "2026-08-02T02:09:58Z",
+  "generated": "2026-08-02T13:07:32Z",
   "sources": {
     "fires": {
-      "count": 0,
-      "updated": "2026-08-02T02:11:28Z",
-      "seconds": 90.1
+      "count": 1500,
+      "updated": "2026-08-02T13:07:33Z",
+      "seconds": 0.9
     },
     "storms": {
       "count": 1,
-      "updated": "2026-08-02T02:11:29Z",
-      "seconds": 0.2
+      "updated": "2026-08-02T13:07:33Z",
+      "seconds": 0.1
     },
     "storm_tracks": {
       "count": 25,
-      "updated": "2026-08-02T02:11:29Z",
-      "seconds": 0.5
+      "updated": "2026-08-02T13:07:34Z",
+      "seconds": 0.4
     },
     "gdacs": {
       "count": 0,
-      "updated": "2026-08-02T02:12:15Z",
+      "updated": "2026-08-02T13:08:19Z",
       "seconds": 45.5
     },
     "forecast": {
       "count": 533,
-      "updated": "2026-08-02T02:12:16Z",
-      "seconds": 1.6
+      "updated": "2026-08-02T13:08:21Z",
+      "seconds": 1.7
     },
     "airquality": {
       "count": 533,
-      "updated": "2026-08-02T02:12:18Z",
-      "seconds": 1.5
+      "updated": "2026-08-02T13:08:22Z",
+      "seconds": 1.4
     },
     "space": {
       "count": 0,
-      "updated": "2026-08-02T02:12:18Z",
-      "seconds": 0.1
+      "updated": "2026-08-02T13:08:22Z",
+      "seconds": 0.2
     },
     "security": {
       "count": 0,
-      "updated": "2026-08-02T02:12:39Z",
-      "seconds": 21.4
+      "updated": "2026-08-02T13:08:44Z",
+      "seconds": 22.0
     },
     "severe_weather": {
-      "count": 23,
-      "updated": "2026-08-02T02:12:58Z",
-      "seconds": 18.7
+      "count": 19,
+      "updated": "2026-08-02T13:09:03Z",
+      "seconds": 18.6
     },
     "advisories": {
       "count": 0,
-      "updated": "2026-08-02T02:12:58Z",
-      "seconds": 0.4
+      "updated": "2026-08-02T13:09:04Z",
+      "seconds": 0.5
     },
     "volcanoes": {
       "count": 18,
-      "updated": "2026-08-02T02:12:59Z",
-      "seconds": 0.1
+      "updated": "2026-08-02T13:09:05Z",
+      "seconds": 1.4
     }
   }
 }
