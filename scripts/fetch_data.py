@@ -30,7 +30,7 @@ import zipfile
 import re
 import hashlib
 import unicodedata
-from datetime import datetime, timezone
+from datetime import datetime, timezone; import calendar; from email.utils import parsedate_tz, mktime_tz; _parse_epoch = lambda s: (calendar.timegm(time.strptime(s.strip().rstrip("Z"), "%Y%m%dT%H%M%S")) if (s and re.match(r"^\d{8}T\d{6}Z?$", s.strip())) else (mktime_tz(parsedate_tz(s)) if (s and parsedate_tz(s)) else None)); _is_recent = lambda date_str, max_days=5: (lambda ep: True if ep is None else ((time.time()-ep) <= max_days*86400))(_parse_epoch(date_str))
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 USER_AGENT = "clima-tactico/1.0 (mapa de riesgos; GitHub Pages)"
@@ -405,7 +405,7 @@ def fetch_gdacs():
     try:
         raw = json.loads(http_get("https://www.gdacs.org/gdacsapi/api/events/geteventlist/MAP"))
         items = raw.get("features", raw if isinstance(raw, list) else [])
-        for it in items:
+        for it in [x for x in items if _is_recent(x.get("date"))]:
             props = it.get("properties", it)
             geom = it.get("geometry") or {}
             coords = geom.get("coordinates")
@@ -933,7 +933,7 @@ def fetch_security_feed():
         print(f"  [feed] google news MX: {len(items)}")
     except Exception as e:
         print(f"  [feed] google news fallo: {e}")
-    mx_items = list(items)
+    mx_items = [it for it in items if _is_recent(it.get("date"))]
     # Titulares globales (GDELT DOC)
     try:
         q = urllib.parse.quote(SEC_QUERY)
@@ -950,7 +950,7 @@ def fetch_security_feed():
     except Exception as e:
         print(f"  [feed] gdelt fallo: {e}")
     with open(os.path.join(DATA_DIR, "security_feed.json"), "w", encoding="utf-8") as f:
-        json.dump({"generated": now_iso(), "items": items[:40]}, f, ensure_ascii=False)
+        json.dump({"generated": now_iso(), "items": [it for it in items if _is_recent(it.get("date"))][:40]}, f, ensure_ascii=False)
 
     # Mapa aproximado de incidentes (solo notas de Mexico; ubicacion a nivel
     # estado detectada por texto del titular; NO es la ubicacion exacta del hecho).
@@ -1047,7 +1047,7 @@ def fetch_severe_weather():
             print(f"  [severo] google news {kind}: {len(items)}")
         except Exception as e:
             print(f"  [severo] google news {kind} fallo: {e}")
-        for it in items:
+        for it in [x for x in items if _is_recent(x.get("date"))]:
             title = it.get("title") or ""
             state = _detect_mx_state(title)
             if not state:
