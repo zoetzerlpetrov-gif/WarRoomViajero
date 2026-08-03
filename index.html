@@ -124,7 +124,7 @@
     padding:1px 6px;border-radius:2px;color:#06100d}
   .threat .sev{margin-left:auto;flex:none;font-family:var(--mono-num);font-weight:700;font-size:14px}
   .threat .ttl{font-size:12px;color:var(--text);white-space:normal;overflow:visible;word-break:break-word;flex:1;min-width:0;line-height:1.35;font-family:var(--mono-num)}
-  .threat .meta{font-size:9.5px;color:var(--text-hi);font-family:var(--mono-num);letter-spacing:.5px;margin-top:2px} .threat .newtag{display:inline-block;background:#ffee00;color:#151a06;font-family:var(--disp);font-weight:800;font-size:8px;letter-spacing:1px;padding:1px 5px;border-radius:2px;margin-right:5px;vertical-align:1px;animation:wrNewPulse 1.4s ease-in-out infinite}@keyframes wrNewPulse{0%,100%{opacity:1}50%{opacity:.45}} .threat .cc{font-family:var(--mono-num);font-size:8.5px;color:var(--text-hi);opacity:.9;letter-spacing:.5px;margin-left:5px;padding:0 3px;border:1px solid var(--line-strong);border-radius:2px}@keyframes wrPulseNew{0%,100%{filter:drop-shadow(0 0 2px #fff) drop-shadow(0 0 5px #fff) brightness(1);opacity:1}50%{filter:drop-shadow(0 0 12px #fff) drop-shadow(0 0 24px #fff) brightness(1.6);opacity:.55}}.wr-pulse-new{animation:wrPulseNew .6s ease-in-out 6}
+  .threat .meta{font-size:9.5px;color:var(--text-hi);font-family:var(--mono-num);letter-spacing:.5px;margin-top:2px} .threat .newtag{display:inline-block;background:#ffee00;color:#151a06;font-family:var(--disp);font-weight:800;font-size:8px;letter-spacing:1px;padding:1px 5px;border-radius:2px;margin-right:5px;vertical-align:1px;animation:wrNewPulse 1.4s ease-in-out infinite}@keyframes wrNewPulse{0%,100%{opacity:1}50%{opacity:.45}} .threat .cc{font-family:var(--mono-num);font-size:8.5px;color:var(--text-hi);opacity:.9;letter-spacing:.5px;margin-left:5px;padding:0 3px;border:1px solid var(--line-strong);border-radius:2px}@keyframes wrPulseNew{0%,100%{filter:drop-shadow(0 0 2px #fff) drop-shadow(0 0 5px #fff) brightness(1);opacity:1}50%{filter:drop-shadow(0 0 12px #fff) drop-shadow(0 0 24px #fff) brightness(1.6);opacity:.55}}.wr-pulse-new{animation:wrPulseNew .6s ease-in-out 100}
   .empty{padding:18px 12px;font-size:11px;color:var(--muted);text-align:center;line-height:1.6}
 
   /* ---- bottom ticker ---- */
@@ -547,7 +547,7 @@ function isUrgentThreat(o){ return o.color===C.red || (o.title && o.title.indexO
 function saveFirstSeen(){ try{ localStorage.setItem('wr_first_seen', JSON.stringify(eventFirstSeen)); }catch(e){} }
 function isNewThreat(o){ const fs=eventFirstSeen[threatKey(o)]; return !!fs && (Date.now()-fs)<86400000; }
 function findLayersNear(lat,lon){ const hits=[]; const EPS=0.0015; map.eachLayer(function(layer){ let ll=null; if(typeof layer.getLatLng==='function'){ try{ ll=layer.getLatLng(); }catch(e){} } if(ll && Math.abs(ll.lat-lat)<EPS && Math.abs(ll.lng-lon)<EPS){ hits.push(layer); } }); return hits; }
-function pulseMarkerAt(lat,lon){ if(lat==null||lon==null||(lat===0&&lon===0)) return; findLayersNear(lat,lon).forEach(function(layer){ const el=(layer._icon)||(layer._path); if(!el) return; el.classList.add('wr-pulse-new'); setTimeout(function(){ el.classList.remove('wr-pulse-new'); }, 3600); }); }
+function pulseMarkerAt(lat,lon){ if(lat==null||lon==null||(lat===0&&lon===0)) return; findLayersNear(lat,lon).forEach(function(layer){ const el=(layer._icon)||(layer._path); if(!el) return; el.classList.add('wr-pulse-new'); setTimeout(function(){ el.classList.remove('wr-pulse-new'); }, 60000); }); }
 function ensureAudioCtx(){
   if(!audioCtx){ try{ audioCtx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} }
   if(audioCtx && audioCtx.state==='suspended'){ audioCtx.resume().catch(function(){}); }
@@ -951,7 +951,7 @@ function feedDate(s){
 async function loadFeed(){
   try{
     const fd=await (await fetch('./data/security_feed.json',{cache:'no-store'})).json();
-    const items=(fd.items||[]).slice().sort((a,b)=>feedDate(b.date)-feedDate(a.date)).slice(0,15);
+    const FEED_MAX_AGE_MS=5*24*60*60*1000; const cutoff=Date.now()-FEED_MAX_AGE_MS; const items=(fd.items||[]).filter(i=>feedDate(i.date)>=cutoff).slice().sort((a,b)=>feedDate(b.date)-feedDate(a.date)).slice(0,15);
     document.getElementById('feed').innerHTML='<div class="ch">FEED DE SEGURIDAD</div>'+
       (items.length ? items.map(i=>`<a class="fitem" href="${esc(i.url)}" target="_blank" rel="noopener">${esc((i.title||'').slice(0,95))}<span class="fs">${esc(i.source||'')} · ${esc(fmtDate(i.date))} · señal, verifica</span></a>`).join('')
         : '<div class="cnote">Sin señales por ahora. Se llena en la próxima actualización.</div>');
