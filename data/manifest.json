@@ -1,59 +1,59 @@
 {
-  "generated": "2026-08-03T02:12:18Z",
+  "generated": "2026-08-03T14:25:56Z",
   "sources": {
     "fires": {
       "count": 10,
-      "updated": "2026-08-03T02:12:18Z",
-      "seconds": 0.7
+      "updated": "2026-08-03T14:25:57Z",
+      "seconds": 0.4
     },
     "storms": {
-      "count": 1,
-      "updated": "2026-08-03T02:12:19Z",
-      "seconds": 0.1
+      "count": 0,
+      "updated": "2026-08-03T14:25:57Z",
+      "seconds": 0.2
     },
     "storm_tracks": {
-      "count": 22,
-      "updated": "2026-08-03T02:12:19Z",
-      "seconds": 0.6
+      "count": 0,
+      "updated": "2026-08-03T14:25:57Z",
+      "seconds": 0.0
     },
     "gdacs": {
-      "count": 0,
-      "updated": "2026-08-03T02:13:05Z",
-      "seconds": 45.5
+      "count": 15,
+      "updated": "2026-08-03T14:26:00Z",
+      "seconds": 3.5
     },
     "forecast": {
       "count": 533,
-      "updated": "2026-08-03T02:13:07Z",
-      "seconds": 1.9
+      "updated": "2026-08-03T14:26:02Z",
+      "seconds": 1.7
     },
     "airquality": {
       "count": 533,
-      "updated": "2026-08-03T02:13:09Z",
-      "seconds": 2.0
+      "updated": "2026-08-03T14:26:04Z",
+      "seconds": 1.7
     },
     "space": {
       "count": 0,
-      "updated": "2026-08-03T02:13:09Z",
-      "seconds": 0.1
+      "updated": "2026-08-03T14:26:04Z",
+      "seconds": 0.3
     },
     "security": {
       "count": 0,
-      "updated": "2026-08-03T02:13:29Z",
-      "seconds": 20.0
+      "updated": "2026-08-03T14:26:27Z",
+      "seconds": 22.9
     },
     "severe_weather": {
-      "count": 22,
-      "updated": "2026-08-03T02:13:48Z",
-      "seconds": 19.7
+      "count": 20,
+      "updated": "2026-08-03T14:26:49Z",
+      "seconds": 21.9
     },
     "advisories": {
       "count": 0,
-      "updated": "2026-08-03T02:13:49Z",
-      "seconds": 0.5
+      "updated": "2026-08-03T14:26:49Z",
+      "seconds": 0.4
     },
     "volcanoes": {
       "count": 18,
-      "updated": "2026-08-03T02:13:49Z",
+      "updated": "2026-08-03T14:26:49Z",
       "seconds": 0.1
     }
   }
