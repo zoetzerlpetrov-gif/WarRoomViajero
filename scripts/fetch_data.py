@@ -51,13 +51,16 @@ def http_get(url, headers=None, binary=False):
     return raw if binary else raw.decode("utf-8", errors="replace")
 
 
-def write_geojson(name, features, extra_meta=None):
+def write_geojson(name, features, extra_meta=None, preserve_if_empty=False):
     fc = {
         "type": "FeatureCollection",
         "metadata": {"generated": now_iso(), "count": len(features), **(extra_meta or {})},
         "features": features,
     }
     path = os.path.join(DATA_DIR, name)
+    if preserve_if_empty and not features and os.path.exists(path):
+        print(f" [{name}] sin datos nuevos: se preserva archivo existente")
+        return 0
     with open(path, "w", encoding="utf-8") as f:
         json.dump(fc, f, ensure_ascii=False)
     return len(features)
@@ -796,7 +799,7 @@ def fetch_security():
         print(f"  [seguridad] puntos: {len(gj.get('features', []))} -> {len(feats)}")
     except Exception as e:
         print(f"  [seguridad] geo fallo: {e}")
-    write_geojson("security.geojson", feats)
+    write_geojson("security.geojson", feats, preserve_if_empty=True)
     fetch_security_feed()
     return len(feats)
 
@@ -971,7 +974,7 @@ def fetch_security_feed():
         print(f"  [feed] mapa seguridad MX: {len(map_feats)}/{len(mx_items)} ubicados")
     except Exception as e:
         print(f"  [feed] mapa seguridad fallo: {e}")
-    write_geojson("security_map.geojson", map_feats, {"note": "Ubicacion aproximada a nivel estado, detectada por texto del titular. No es la ubicacion exacta del incidente."})
+    write_geojson("security_map.geojson", map_feats, {"note": "Ubicacion aproximada a nivel estado, detectada por texto del titular. No es la ubicacion exacta del incidente."}, preserve_if_empty=True)
 
 # -------------------------------------------------------------------------
 # 10) CLIMA SEVERO (GRANIZO / TORNADO) - senales de noticias (GDELT + Google News)
@@ -1023,7 +1026,7 @@ def fetch_severe_weather():
     pts += _fetch_gdelt_geo(TORNADO_QUERY, "tornado")
     pts.sort(key=lambda t: t[0], reverse=True)
     feats = [f for _, f in pts[:300]]
-    write_geojson("severe_weather.geojson", feats)
+    write_geojson("severe_weather.geojson", feats, preserve_if_empty=True)
 
     # 2) Titulares MX (Google News) con geocodificacion a nivel estado + bandera de severidad
     map_feats = []
@@ -1064,7 +1067,7 @@ def fetch_severe_weather():
     print(f"  [severo] mapa MX: {len(map_feats)} ubicados")
     write_geojson("severe_weather_map.geojson", map_feats, {
         "note": "Ubicacion aproximada a nivel estado, detectada por texto del titular. No es el punto exacto del evento. 'severe' es una deteccion heuristica de palabras clave (tamano/danos), no una medicion oficial.",
-    })
+    }, preserve_if_empty=True)
     return len(feats) + len(map_feats)
 
 
