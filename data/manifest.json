@@ -1,60 +1,60 @@
 {
-  "generated": "2026-08-05T18:25:14Z",
+  "generated": "2026-08-06T02:01:04Z",
   "sources": {
     "fires": {
-      "count": 1500,
-      "updated": "2026-08-05T18:25:17Z",
-      "seconds": 2.4
+      "count": 0,
+      "updated": "2026-08-06T02:01:05Z",
+      "seconds": 0.3
     },
     "storms": {
       "count": 0,
-      "updated": "2026-08-05T18:25:17Z",
-      "seconds": 0.1
+      "updated": "2026-08-06T02:01:05Z",
+      "seconds": 0.2
     },
     "storm_tracks": {
       "count": 0,
-      "updated": "2026-08-05T18:25:17Z",
-      "seconds": 0.0
+      "updated": "2026-08-06T02:01:05Z",
+      "seconds": 0.1
     },
     "gdacs": {
-      "count": 18,
-      "updated": "2026-08-05T18:25:26Z",
-      "seconds": 8.8
+      "count": 19,
+      "updated": "2026-08-06T02:01:09Z",
+      "seconds": 3.7
     },
     "forecast": {
       "count": 533,
-      "updated": "2026-08-05T18:25:28Z",
-      "seconds": 2.2
+      "updated": "2026-08-06T02:01:49Z",
+      "seconds": 40.3
     },
     "airquality": {
       "count": 533,
-      "updated": "2026-08-05T18:25:30Z",
-      "seconds": 2.0
+      "updated": "2026-08-06T02:01:50Z",
+      "seconds": 1.5
     },
     "space": {
       "count": 0,
-      "updated": "2026-08-05T18:25:30Z",
-      "seconds": 0.2
+      "updated": "2026-08-06T02:01:51Z",
+      "seconds": 0.4
     },
     "security": {
       "count": 0,
-      "updated": "2026-08-05T18:25:54Z",
-      "seconds": 24.5
+      "updated": "2026-08-06T02:02:18Z",
+      "seconds": 27.6
     },
     "severe_weather": {
-      "count": 23,
-      "updated": "2026-08-05T18:26:16Z",
-      "seconds": 21.3
+      "count": 27,
+      "updated": "2026-08-06T02:02:42Z",
+      "seconds": 23.4
     },
     "advisories": {
       "count": 0,
-      "updated": "2026-08-05T18:27:01Z",
-      "seconds": 45.3
+      "updated": "2026-08-06T02:02:42Z",
+      "seconds": 0.5
     },
     "volcanoes": {
       "count": 18,
-      "updated": "2026-08-05T18:27:02Z",
-      "seconds": 0.9
+      "updated": "2026-08-06T02:02:42Z",
+      "seconds": 0.2
     }
   }
 }
