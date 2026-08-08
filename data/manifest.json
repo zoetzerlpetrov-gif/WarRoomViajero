@@ -1,60 +1,60 @@
 {
-  "generated": "2026-08-07T12:49:57Z",
+  "generated": "2026-08-08T01:08:49Z",
   "sources": {
     "fires": {
-      "count": 1500,
-      "updated": "2026-08-07T12:49:59Z",
-      "seconds": 1.7
+      "count": 0,
+      "updated": "2026-08-08T01:08:49Z",
+      "seconds": 0.5
     },
     "storms": {
       "count": 0,
-      "updated": "2026-08-07T12:49:59Z",
-      "seconds": 0.1
+      "updated": "2026-08-08T01:08:49Z",
+      "seconds": 0.2
     },
     "storm_tracks": {
       "count": 0,
-      "updated": "2026-08-07T12:49:59Z",
+      "updated": "2026-08-08T01:08:50Z",
       "seconds": 0.0
     },
     "gdacs": {
-      "count": 20,
-      "updated": "2026-08-07T12:50:02Z",
-      "seconds": 3.1
+      "count": 17,
+      "updated": "2026-08-08T01:08:52Z",
+      "seconds": 2.4
     },
     "forecast": {
       "count": 533,
-      "updated": "2026-08-07T12:50:08Z",
-      "seconds": 5.8
+      "updated": "2026-08-08T01:08:54Z",
+      "seconds": 1.7
     },
     "airquality": {
       "count": 533,
-      "updated": "2026-08-07T12:50:10Z",
-      "seconds": 2.0
+      "updated": "2026-08-08T01:08:55Z",
+      "seconds": 1.7
     },
     "space": {
       "count": 0,
-      "updated": "2026-08-07T12:50:10Z",
-      "seconds": 0.1
+      "updated": "2026-08-08T01:08:56Z",
+      "seconds": 0.3
     },
     "security": {
       "count": 0,
-      "updated": "2026-08-07T12:50:34Z",
-      "seconds": 24.0
+      "updated": "2026-08-08T01:09:17Z",
+      "seconds": 21.9
     },
     "severe_weather": {
-      "count": 28,
-      "updated": "2026-08-07T12:50:55Z",
-      "seconds": 21.0
+      "count": 26,
+      "updated": "2026-08-08T01:09:39Z",
+      "seconds": 21.2
     },
     "advisories": {
       "count": 0,
-      "updated": "2026-08-07T12:50:55Z",
+      "updated": "2026-08-08T01:09:39Z",
       "seconds": 0.5
     },
     "volcanoes": {
       "count": 18,
-      "updated": "2026-08-07T12:50:55Z",
-      "seconds": 0.2
+      "updated": "2026-08-08T01:09:39Z",
+      "seconds": 0.3
     }
   }
 }
