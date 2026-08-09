@@ -1,60 +1,60 @@
 {
-  "generated": "2026-08-08T12:35:02Z",
+  "generated": "2026-08-09T01:13:52Z",
   "sources": {
     "fires": {
       "count": 0,
-      "updated": "2026-08-08T12:36:32Z",
-      "seconds": 90.1
+      "updated": "2026-08-09T01:13:52Z",
+      "seconds": 0.7
     },
     "storms": {
       "count": 0,
-      "updated": "2026-08-08T12:36:32Z",
-      "seconds": 0.1
+      "updated": "2026-08-09T01:13:53Z",
+      "seconds": 0.2
     },
     "storm_tracks": {
       "count": 0,
-      "updated": "2026-08-08T12:36:32Z",
-      "seconds": 0.0
+      "updated": "2026-08-09T01:13:53Z",
+      "seconds": 0.1
     },
     "gdacs": {
       "count": 25,
-      "updated": "2026-08-08T12:36:36Z",
-      "seconds": 3.6
+      "updated": "2026-08-09T01:13:56Z",
+      "seconds": 3.1
     },
     "forecast": {
       "count": 533,
-      "updated": "2026-08-08T12:36:37Z",
-      "seconds": 1.9
+      "updated": "2026-08-09T01:14:00Z",
+      "seconds": 4.0
     },
     "airquality": {
       "count": 533,
-      "updated": "2026-08-08T12:36:39Z",
-      "seconds": 2.0
+      "updated": "2026-08-09T01:14:02Z",
+      "seconds": 1.8
     },
     "space": {
       "count": 0,
-      "updated": "2026-08-08T12:36:40Z",
-      "seconds": 0.1
+      "updated": "2026-08-09T01:14:02Z",
+      "seconds": 0.3
     },
     "security": {
       "count": 0,
-      "updated": "2026-08-08T12:37:00Z",
-      "seconds": 20.8
+      "updated": "2026-08-09T01:14:22Z",
+      "seconds": 19.9
     },
     "severe_weather": {
-      "count": 26,
-      "updated": "2026-08-08T12:37:20Z",
-      "seconds": 19.4
+      "count": 20,
+      "updated": "2026-08-09T01:14:38Z",
+      "seconds": 15.8
     },
     "advisories": {
       "count": 0,
-      "updated": "2026-08-08T12:37:20Z",
-      "seconds": 0.5
+      "updated": "2026-08-09T01:14:38Z",
+      "seconds": 0.6
     },
     "volcanoes": {
       "count": 18,
-      "updated": "2026-08-08T12:37:21Z",
-      "seconds": 0.5
+      "updated": "2026-08-09T01:14:39Z",
+      "seconds": 0.2
     }
   }
 }
