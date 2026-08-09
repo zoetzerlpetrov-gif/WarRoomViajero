@@ -1,60 +1,60 @@
 {
-  "generated": "2026-08-09T01:13:52Z",
+  "generated": "2026-08-09T12:37:25Z",
   "sources": {
     "fires": {
-      "count": 0,
-      "updated": "2026-08-09T01:13:52Z",
-      "seconds": 0.7
+      "count": 1500,
+      "updated": "2026-08-09T12:37:26Z",
+      "seconds": 0.9
     },
     "storms": {
       "count": 0,
-      "updated": "2026-08-09T01:13:53Z",
+      "updated": "2026-08-09T12:37:26Z",
       "seconds": 0.2
     },
     "storm_tracks": {
       "count": 0,
-      "updated": "2026-08-09T01:13:53Z",
-      "seconds": 0.1
+      "updated": "2026-08-09T12:37:26Z",
+      "seconds": 0.0
     },
     "gdacs": {
-      "count": 25,
-      "updated": "2026-08-09T01:13:56Z",
-      "seconds": 3.1
+      "count": 23,
+      "updated": "2026-08-09T12:37:29Z",
+      "seconds": 2.8
     },
     "forecast": {
       "count": 533,
-      "updated": "2026-08-09T01:14:00Z",
-      "seconds": 4.0
+      "updated": "2026-08-09T12:37:32Z",
+      "seconds": 3.3
     },
     "airquality": {
       "count": 533,
-      "updated": "2026-08-09T01:14:02Z",
-      "seconds": 1.8
+      "updated": "2026-08-09T12:37:34Z",
+      "seconds": 1.6
     },
     "space": {
       "count": 0,
-      "updated": "2026-08-09T01:14:02Z",
+      "updated": "2026-08-09T12:37:34Z",
       "seconds": 0.3
     },
     "security": {
       "count": 0,
-      "updated": "2026-08-09T01:14:22Z",
-      "seconds": 19.9
+      "updated": "2026-08-09T12:37:53Z",
+      "seconds": 18.8
     },
     "severe_weather": {
-      "count": 20,
-      "updated": "2026-08-09T01:14:38Z",
-      "seconds": 15.8
+      "count": 18,
+      "updated": "2026-08-09T12:38:10Z",
+      "seconds": 17.6
     },
     "advisories": {
       "count": 0,
-      "updated": "2026-08-09T01:14:38Z",
-      "seconds": 0.6
+      "updated": "2026-08-09T12:38:11Z",
+      "seconds": 0.4
     },
     "volcanoes": {
       "count": 18,
-      "updated": "2026-08-09T01:14:39Z",
-      "seconds": 0.2
+      "updated": "2026-08-09T12:38:13Z",
+      "seconds": 2.4
     }
   }
 }
