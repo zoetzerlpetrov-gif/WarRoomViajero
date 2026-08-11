@@ -1,60 +1,60 @@
 {
-  "generated": "2026-08-10T12:54:46Z",
+  "generated": "2026-08-11T01:14:01Z",
   "sources": {
     "fires": {
-      "count": 1500,
-      "updated": "2026-08-10T12:54:47Z",
-      "seconds": 0.6
+      "count": 0,
+      "updated": "2026-08-11T01:14:02Z",
+      "seconds": 0.5
     },
     "storms": {
       "count": 0,
-      "updated": "2026-08-10T12:54:47Z",
+      "updated": "2026-08-11T01:14:02Z",
       "seconds": 0.2
     },
     "storm_tracks": {
       "count": 0,
-      "updated": "2026-08-10T12:54:47Z",
-      "seconds": 0.0
+      "updated": "2026-08-11T01:14:02Z",
+      "seconds": 0.1
     },
     "gdacs": {
-      "count": 14,
-      "updated": "2026-08-10T12:54:50Z",
-      "seconds": 2.5
+      "count": 11,
+      "updated": "2026-08-11T01:14:05Z",
+      "seconds": 2.9
     },
     "forecast": {
       "count": 533,
-      "updated": "2026-08-10T12:54:51Z",
-      "seconds": 1.5
+      "updated": "2026-08-11T01:14:08Z",
+      "seconds": 2.6
     },
     "airquality": {
       "count": 533,
-      "updated": "2026-08-10T12:54:53Z",
-      "seconds": 1.4
+      "updated": "2026-08-11T01:14:09Z",
+      "seconds": 1.7
     },
     "space": {
       "count": 0,
-      "updated": "2026-08-10T12:54:53Z",
+      "updated": "2026-08-11T01:14:10Z",
       "seconds": 0.3
     },
     "security": {
       "count": 0,
-      "updated": "2026-08-10T12:55:17Z",
-      "seconds": 24.4
+      "updated": "2026-08-11T01:14:34Z",
+      "seconds": 24.1
     },
     "severe_weather": {
-      "count": 17,
-      "updated": "2026-08-10T12:55:39Z",
-      "seconds": 21.6
+      "count": 18,
+      "updated": "2026-08-11T01:14:51Z",
+      "seconds": 17.4
     },
     "advisories": {
       "count": 0,
-      "updated": "2026-08-10T12:55:39Z",
+      "updated": "2026-08-11T01:14:52Z",
       "seconds": 0.4
     },
     "volcanoes": {
       "count": 18,
-      "updated": "2026-08-10T12:55:39Z",
-      "seconds": 0.2
+      "updated": "2026-08-11T01:14:52Z",
+      "seconds": 0.1
     }
   }
 }
