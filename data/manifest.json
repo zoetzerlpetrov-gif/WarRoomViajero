@@ -1,60 +1,60 @@
 {
-  "generated": "2026-08-17T00:54:24Z",
+  "generated": "2026-08-17T12:31:43Z",
   "sources": {
     "fires": {
-      "count": 0,
-      "updated": "2026-08-17T00:55:54Z",
-      "seconds": 90.1
+      "count": 1500,
+      "updated": "2026-08-17T12:31:45Z",
+      "seconds": 1.5
     },
     "storms": {
       "count": 1,
-      "updated": "2026-08-17T00:55:54Z",
-      "seconds": 0.2
+      "updated": "2026-08-17T12:31:45Z",
+      "seconds": 0.1
     },
     "storm_tracks": {
       "count": 45,
-      "updated": "2026-08-17T00:55:54Z",
-      "seconds": 0.5
+      "updated": "2026-08-17T12:31:46Z",
+      "seconds": 1.2
     },
     "gdacs": {
       "count": 0,
-      "updated": "2026-08-17T00:55:55Z",
-      "seconds": 0.5
+      "updated": "2026-08-17T12:31:47Z",
+      "seconds": 0.7
     },
     "forecast": {
       "count": 533,
-      "updated": "2026-08-17T00:55:58Z",
-      "seconds": 3.4
+      "updated": "2026-08-17T12:31:59Z",
+      "seconds": 12.0
     },
     "airquality": {
       "count": 533,
-      "updated": "2026-08-17T00:56:00Z",
-      "seconds": 1.5
+      "updated": "2026-08-17T12:32:00Z",
+      "seconds": 1.8
     },
     "space": {
       "count": 0,
-      "updated": "2026-08-17T00:56:00Z",
+      "updated": "2026-08-17T12:32:01Z",
       "seconds": 0.2
     },
     "security": {
       "count": 0,
-      "updated": "2026-08-17T00:56:22Z",
-      "seconds": 22.3
+      "updated": "2026-08-17T12:32:32Z",
+      "seconds": 31.9
     },
     "severe_weather": {
       "count": 13,
-      "updated": "2026-08-17T00:56:42Z",
-      "seconds": 19.2
+      "updated": "2026-08-17T12:33:03Z",
+      "seconds": 30.9
     },
     "advisories": {
       "count": 0,
-      "updated": "2026-08-17T00:56:42Z",
-      "seconds": 0.4
+      "updated": "2026-08-17T12:33:04Z",
+      "seconds": 0.5
     },
     "volcanoes": {
       "count": 18,
-      "updated": "2026-08-17T00:56:44Z",
-      "seconds": 2.0
+      "updated": "2026-08-17T12:33:07Z",
+      "seconds": 3.0
     }
   }
 }
