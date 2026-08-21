@@ -1,60 +1,60 @@
 {
-  "generated": "2026-08-21T00:57:26Z",
+  "generated": "2026-08-21T12:34:12Z",
   "sources": {
     "fires": {
-      "count": 0,
-      "updated": "2026-08-21T00:57:26Z",
-      "seconds": 0.2
+      "count": 1500,
+      "updated": "2026-08-21T12:34:13Z",
+      "seconds": 1.6
     },
     "storms": {
       "count": 2,
-      "updated": "2026-08-21T00:57:26Z",
-      "seconds": 0.3
+      "updated": "2026-08-21T12:34:13Z",
+      "seconds": 0.1
     },
     "storm_tracks": {
       "count": 80,
-      "updated": "2026-08-21T00:57:27Z",
-      "seconds": 0.4
+      "updated": "2026-08-21T12:34:14Z",
+      "seconds": 1.1
     },
     "gdacs": {
       "count": 0,
-      "updated": "2026-08-21T00:57:27Z",
-      "seconds": 0.4
+      "updated": "2026-08-21T12:34:16Z",
+      "seconds": 1.1
     },
     "forecast": {
       "count": 533,
-      "updated": "2026-08-21T00:57:28Z",
-      "seconds": 1.4
+      "updated": "2026-08-21T12:34:18Z",
+      "seconds": 2.1
     },
     "airquality": {
       "count": 533,
-      "updated": "2026-08-21T00:57:30Z",
-      "seconds": 1.4
+      "updated": "2026-08-21T12:34:20Z",
+      "seconds": 2.0
     },
     "space": {
       "count": 0,
-      "updated": "2026-08-21T00:57:30Z",
-      "seconds": 0.3
+      "updated": "2026-08-21T12:34:20Z",
+      "seconds": 0.2
     },
     "security": {
       "count": 0,
-      "updated": "2026-08-21T00:57:50Z",
-      "seconds": 20.1
+      "updated": "2026-08-21T12:34:42Z",
+      "seconds": 22.4
     },
     "severe_weather": {
-      "count": 13,
-      "updated": "2026-08-21T00:58:09Z",
-      "seconds": 19.2
+      "count": 10,
+      "updated": "2026-08-21T12:35:05Z",
+      "seconds": 22.9
     },
     "advisories": {
       "count": 0,
-      "updated": "2026-08-21T00:58:10Z",
-      "seconds": 0.4
+      "updated": "2026-08-21T12:35:06Z",
+      "seconds": 0.5
     },
     "volcanoes": {
       "count": 18,
-      "updated": "2026-08-21T00:58:10Z",
-      "seconds": 0.1
+      "updated": "2026-08-21T12:35:06Z",
+      "seconds": 0.5
     }
   }
 }
