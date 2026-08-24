@@ -1,60 +1,60 @@
 {
-  "generated": "2026-08-24T00:55:19Z",
+  "generated": "2026-08-24T12:36:50Z",
   "sources": {
     "fires": {
-      "count": 0,
-      "updated": "2026-08-24T00:55:19Z",
-      "seconds": 0.2
+      "count": 1500,
+      "updated": "2026-08-24T12:36:51Z",
+      "seconds": 0.8
     },
     "storms": {
       "count": 3,
-      "updated": "2026-08-24T00:55:19Z",
+      "updated": "2026-08-24T12:36:51Z",
       "seconds": 0.2
     },
     "storm_tracks": {
-      "count": 97,
-      "updated": "2026-08-24T00:55:20Z",
-      "seconds": 0.7
+      "count": 92,
+      "updated": "2026-08-24T12:36:52Z",
+      "seconds": 1.0
     },
     "gdacs": {
       "count": 0,
-      "updated": "2026-08-24T00:55:22Z",
-      "seconds": 2.3
+      "updated": "2026-08-24T12:36:52Z",
+      "seconds": 0.5
     },
     "forecast": {
       "count": 533,
-      "updated": "2026-08-24T00:55:24Z",
-      "seconds": 1.4
+      "updated": "2026-08-24T12:36:54Z",
+      "seconds": 1.8
     },
     "airquality": {
       "count": 533,
-      "updated": "2026-08-24T00:55:25Z",
-      "seconds": 1.4
+      "updated": "2026-08-24T12:36:56Z",
+      "seconds": 1.5
     },
     "space": {
       "count": 0,
-      "updated": "2026-08-24T00:55:25Z",
-      "seconds": 0.3
+      "updated": "2026-08-24T12:36:56Z",
+      "seconds": 0.2
     },
     "security": {
       "count": 0,
-      "updated": "2026-08-24T00:55:48Z",
-      "seconds": 22.2
+      "updated": "2026-08-24T12:37:23Z",
+      "seconds": 27.4
     },
     "severe_weather": {
       "count": 11,
-      "updated": "2026-08-24T00:56:10Z",
-      "seconds": 22.5
+      "updated": "2026-08-24T12:37:44Z",
+      "seconds": 20.3
     },
     "advisories": {
       "count": 0,
-      "updated": "2026-08-24T00:56:10Z",
-      "seconds": 0.4
+      "updated": "2026-08-24T12:37:44Z",
+      "seconds": 0.5
     },
     "volcanoes": {
       "count": 18,
-      "updated": "2026-08-24T00:56:12Z",
-      "seconds": 1.7
+      "updated": "2026-08-24T12:37:44Z",
+      "seconds": 0.1
     }
   }
 }
