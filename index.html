@@ -31,7 +31,7 @@
       linear-gradient(var(--line) 1px,transparent 1px) 0 0/64px 64px,
       linear-gradient(90deg,var(--line) 1px,transparent 1px) 0 0/64px 64px;
     mask-image:radial-gradient(120% 110% at 50% 45%,#000 55%,transparent 100%)}
-  #fx .scan{position:absolute;inset:0;mix-blend-mode:overlay;opacity:.5;
+  #fx .scan{position:absolute;inset:0;mix-blend-mode:overlay;opacity:0;
     background:repeating-linear-gradient(0deg,rgba(70,224,160,.05) 0 2px,transparent 2px 4px);
     animation:scan 9s linear infinite}
   #fx .vig{position:absolute;inset:0;
@@ -378,7 +378,7 @@ document.getElementById('zoomOutBtn').addEventListener('click',()=>map.zoomOut()
       return last || "No determinado";
     }
 
-const CARTO_API_KEY = 'cb1_28jn_1_e0e40bdfc7ffb2ef4cb657f2';   // ← pon aquí tu clave gratuita de carto.com/basemaps
+const CARTO_API_KEY = ''; // tiles CARTO público, sin key requerida
 const _cartoUrl = (style) =>
   `https://{s}.basemaps.cartocdn.com/${style}/{z}/{x}/{y}{r}.png${CARTO_API_KEY ? '?key=' + CARTO_API_KEY : ''}`;
 
@@ -783,11 +783,11 @@ function gdacsLayer(f){
   const emoji = GDACS_ICON[et] || '⚠️';
 
   // Ícono visual único por tipo en lugar de círculo genérico
-  const iconHtml = `<div style="font-size:18px;line-height:1;filter:drop-shadow(0 0 3px ${c});
-    border:1.5px solid ${c};border-radius:50%;width:26px;height:26px;
+  const iconHtml = `<div style="font-size:20px;line-height:1;filter:drop-shadow(0 0 5px ${c});
+    border:1.5px solid ${c};border-radius:50%;width:30px;height:30px;
     display:flex;align-items:center;justify-content:center;
-    background:rgba(0,0,0,.55)">${emoji}</div>`;
-  const icon = L.divIcon({className:'',html:iconHtml,iconSize:[26,26],iconAnchor:[13,13]});
+    background:rgba(0,0,0,.65)">${emoji}</div>`;
+  const icon = L.divIcon({className:'',html:iconHtml,iconSize:[30,30],iconAnchor:[15,15]});
   const m = L.marker([lat,lon],{icon});
 
   m.bindPopup(`<div class="pp"><span class="ptag" style="background:${c}">${emoji} ${esc(p.type_label||'EVENTO')} · ${esc(p.alertlevel)}</span>
@@ -804,7 +804,8 @@ function gdacsLayer(f){
 // ── CAPA: MOVIMIENTOS DE MASA (deslaves, avalanchas, aludes, inundaciones repentinas) ──
 const MASS_ICON = {
   landslide:'🏔️', avalanche:'❄️', mudslide:'🪨', rockfall:'🪨',
-  flood:'💧', debris:'🏔️', glacier:'🧊', surge:'🌊', default:'⚠️',
+  flood:'💧', debris:'🏔️', glacier:'🧊', surge:'🌊',
+  lava:'🌋', talud:'⛰️', default:'⚠️',
 };
 function massLayer(f){
   const [lon,lat]=f.geometry.coordinates, p=f.properties;
@@ -812,11 +813,11 @@ function massLayer(f){
   const cnt=p.count||1;
   const emoji = MASS_ICON[kind] || MASS_ICON.default;
   const col = kind==='flood'||kind==='surge'?C.cyan : kind==='avalanche'||kind==='glacier'?'#a0d8ef' : '#c8a97e';
-  const iconHtml = `<div style="font-size:16px;line-height:1;filter:drop-shadow(0 0 3px ${col});
-    border:1.5px solid ${col};border-radius:50%;width:24px;height:24px;
+  const iconHtml = `<div style="font-size:18px;line-height:1;filter:drop-shadow(0 0 4px ${col});
+    border:1.5px solid ${col};border-radius:50%;width:28px;height:28px;
     display:flex;align-items:center;justify-content:center;
-    background:rgba(0,0,0,.55)">${emoji}</div>`;
-  const icon = L.divIcon({className:'',html:iconHtml,iconSize:[24,24],iconAnchor:[12,12]});
+    background:rgba(0,0,0,.65)">${emoji}</div>`;
+  const icon = L.divIcon({className:'',html:iconHtml,iconSize:[28,28],iconAnchor:[14,14]});
   const m = L.marker([lat,lon],{icon});
   m.bindPopup(`<div class="pp"><span class="ptag" style="background:${col}">${emoji} ${esc(kind.toUpperCase())} · señal noticias</span>
     <h3>${esc(p.name||kind)}</h3>
