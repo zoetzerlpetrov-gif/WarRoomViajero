@@ -378,7 +378,7 @@ document.getElementById('zoomOutBtn').addEventListener('click',()=>map.zoomOut()
       return last || "No determinado";
     }
 
-const CARTO_API_KEY = ''; // tiles CARTO público, sin key requerida
+const CARTO_API_KEY = 'cb1_28jn_1_e0e40bdfc7ffb2ef4cb657f2';
 const _cartoUrl = (style) =>
   `https://{s}.basemaps.cartocdn.com/${style}/{z}/{x}/{y}{r}.png${CARTO_API_KEY ? '?key=' + CARTO_API_KEY : ''}`;
 
@@ -729,7 +729,7 @@ async function loadStormTracks(){
         const mid = allPts[Math.floor(allPts.length/2)] || allPts[0] || [0,0];
         FEATS.storms.push({lat:mid[0], lon:mid[1], props:p, marker:lastPl});
       } else if(f.geometry.type==='Point'){
-        const lon=f.geometry.coordinates[0], lat=f.geometry.coordinates[1];
+        const lon=_normLon(f.geometry.coordinates[0]), lat=f.geometry.coordinates[1];
         const isForecastPt = p.kind==='forecast_point';
         const isPastPt = p.kind==='past_point';
         if(!isForecastPt && !isPastPt) return;
@@ -752,7 +752,7 @@ async function loadStormTracks(){
         FEATS.storms.push({lat:lat,lon:lon,props:p,marker:m});
       } else if(f.geometry.type==='Polygon'){
         const ring = f.geometry.coordinates[0]||[];
-        const latlngs = ring.map(function(c){return [c[1],c[0]];});
+        const latlngs = ring.map(function(c){return [c[1],_normLon(c[0])];});
         const isForecastR = p.kind==='wind_radii_forecast';
         const kt = p.wind_kt;
         const color = kt>=64?C.red:(kt>=50?C.orange:C.amber);
