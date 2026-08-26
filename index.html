@@ -378,17 +378,15 @@ document.getElementById('zoomOutBtn').addEventListener('click',()=>map.zoomOut()
       return last || "No determinado";
     }
 
-const CARTO_API_KEY = 'cb1_28jn_1_e0e40bdfc7ffb2ef4cb657f2';
-const _cartoUrl = (style) =>
-  `https://{s}.basemaps.cartocdn.com/${style}/{z}/{x}/{y}{r}.png${CARTO_API_KEY ? '?key=' + CARTO_API_KEY : ''}`;
-
-L.tileLayer(_cartoUrl('dark-matter-nolabels'), {
-  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> · &copy; <a href="https://carto.com/attributions">CARTO</a> · datos: USGS, NOAA, NASA FIRMS, Open-Meteo, GDACS',
-  maxZoom: 19,
-  detectRetina: true,
+// Esri World Dark Gray — gratuito, sin API key requerida
+// Nota: URL usa {z}/{y}/{x} (y antes de x), distinto a Leaflet estándar
+L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors · Esri, HERE, DeLorme, MapmyIndia · datos: USGS, NOAA, NASA FIRMS, Open-Meteo, GDACS',
+  maxZoom: 16,
 }).addTo(map);
-const labels = L.tileLayer(_cartoUrl('dark-matter-only-labels'), {
-  maxZoom: 19, opacity: .55, detectRetina: true,
+// Capa de referencia/etiquetas Esri (nombres de países, ciudades, etc.)
+const labels = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}', {
+  maxZoom: 16, opacity: 0.8,
 }).addTo(map);
 
 // ============================ GRUPOS DE CAPAS ============================
@@ -753,6 +751,13 @@ async function loadStormTracks(){
       } else if(f.geometry.type==='Polygon'){
         const ring = f.geometry.coordinates[0]||[];
         const latlngs = ring.map(function(c){return [c[1],_normLon(c[0])];});
+        // Saltar polígonos que cruzan el antimeridiano: sus aristas producirían
+        // líneas horizontales que abarcan todo el mapa en Leaflet.
+        let crossesAM=false;
+        for(let k=1;k<latlngs.length;k++){
+          if(Math.abs(latlngs[k][1]-latlngs[k-1][1])>180){crossesAM=true;break;}
+        }
+        if(crossesAM) return;
         const isForecastR = p.kind==='wind_radii_forecast';
         const kt = p.wind_kt;
         const color = kt>=64?C.red:(kt>=50?C.orange:C.amber);
