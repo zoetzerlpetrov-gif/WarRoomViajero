@@ -74,10 +74,22 @@ def feature(lon, lat, props):
     }
 
 
+def _norm_lon(lon):
+    """Normaliza la longitud al rango [-180, 180].
+    Evita que trayectorias con lon < -180 (p. ej. Pacífico occidental visto
+    desde el este) generen franjas horizontales en Leaflet al cruzar el antimeridiano."""
+    lon = float(lon)
+    while lon > 180:
+        lon -= 360
+    while lon < -180:
+        lon += 360
+    return round(lon, 4)
+
+
 def line_feature(coords, props):
     return {
         "type": "Feature",
-        "geometry": {"type": "LineString", "coordinates": [[round(float(lo), 4), round(float(la), 4)] for lo, la in coords]},
+        "geometry": {"type": "LineString", "coordinates": [[_norm_lon(lo), round(float(la), 4)] for lo, la in coords]},
         "properties": props,
     }
 
@@ -401,6 +413,13 @@ def fetch_storm_tracks():
 GDACS_TYPE = {
     "EQ": "Sismo", "TC": "Ciclon tropical", "FL": "Inundacion",
     "VO": "Volcan", "DR": "Sequia", "WF": "Incendio forestal", "TS": "Tsunami",
+    # tipos adicionales que GDACS puede reportar
+    "LS": "Deslizamiento",    # Landslide
+    "AV": "Avalancha",        # Avalanche / snow avalanche
+    "FF": "Inundacion rapida",# Flash Flood
+    "MS": "Movimiento de masa",# Mass movement / rockfall / debris
+    "SS": "Marejada",         # Storm Surge / swell
+    "GL": "Desprendimiento glaciar",  # Glacial Lake Outburst Flood / glaciar
 }
 
 def fetch_gdacs():
@@ -1072,6 +1091,46 @@ def fetch_severe_weather():
 
 
 
+
+# -------------------------------------------------------------------------
+# 11) MOVIMIENTOS DE MASA (deslaves, avalanchas, aludes, desbordamientos,
+#     desprendimientos glaciares, mar de fondo)  - señales GDELT 24 h
+#     NOTA: son menciones en cobertura noticiosa geolocalizada, NO eventos
+#     confirmados ni mediciones oficiales. Verifica siempre en Proteccion Civil.
+# -------------------------------------------------------------------------
+
+MASS_QUERIES = [
+    ("landslide",  '(deslave OR deslizamiento OR derrumbe OR landslide OR "deslizamiento de tierra" '
+                   'OR "corrimiento de tierra" OR "alud terrestre" OR "desprendimiento de tierra")'),
+    ("avalanche",  '(avalancha OR "avalancha de nieve" OR "alud de nieve" OR "alud nevado" '
+                   'OR avalanche OR snowslide)'),
+    ("mudslide",   '(lahar OR "avalancha de lodo" OR "flujo de lodo" OR "flujo de detritos" '
+                   'OR mudslide OR "mud flow" OR "debris flow" OR lahars)'),
+    ("rockfall",   '(derrumbe OR "caida de rocas" OR "desprendimiento de rocas" '
+                   'OR rockfall OR rockslide OR "caida de piedras")'),
+    ("flood",      '(inundacion OR "desbordamiento de rio" OR "rio desbordado" '
+                   'OR "desbordamiento" OR flooding OR "flash flood" OR "inundacion repentina")'),
+    ("glacier",    '(glaciar OR "desprendimiento glaciar" OR "colapso glaciar" OR "alud glaciar" '
+                   'OR glacier OR "glacial lake" OR GLOF OR "glaciar nepal" OR "seracs")'),
+    ("surge",      '("mar de fondo" OR marejada OR "oleaje extremo" OR "swell" '
+                   'OR "marejada ciclonica" OR "marea de tormenta" OR "storm surge")'),
+]
+
+
+def fetch_mass_movements():
+    """Obtiene senales GDELT de movimientos de masa en las ultimas 24 h."""
+    pts = []
+    for layer, query in MASS_QUERIES:
+        pts += _fetch_gdelt_geo(query, layer)
+    pts.sort(key=lambda t: t[0], reverse=True)
+    feats = [f for _, f in pts[:400]]
+    print(f"  [mass] total puntos: {len(feats)}")
+    return write_geojson("mass_movements.geojson", feats, {
+        "note": ("Señales de cobertura noticiosa GDELT 24 h. Ubicacion aproximada. "
+                 "No son eventos confirmados. Fuentes oficiales: Proteccion Civil, "
+                 "CENAPRED, SMN, servicios geologicos nacionales."),
+    }, preserve_if_empty=True)
+
 # -------------------------------------------------------------------------
 # Orquestacion
 # -------------------------------------------------------------------------
@@ -1091,6 +1150,7 @@ def main():
         ("space", fetch_space),
         ("security", fetch_security),
         ("severe_weather", fetch_severe_weather),
+        ("mass_movements", fetch_mass_movements),
         ("advisories", fetch_advisories),
         ("volcanoes", fetch_volcanoes),
     ]
