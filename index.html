@@ -378,12 +378,18 @@ document.getElementById('zoomOutBtn').addEventListener('click',()=>map.zoomOut()
       return last || "No determinado";
     }
 
-L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png',{
-  attribution:'&copy; OpenStreetMap · &copy; CARTO · datos: USGS, NOAA, NASA FIRMS, Open-Meteo, GDACS',
-  subdomains:'abcd', maxZoom:19
+const CARTO_API_KEY = '';   // ← pon aquí tu clave gratuita de carto.com/basemaps
+const _cartoUrl = (style) =>
+  `https://basemaps.cartocdn.com/${style}/{z}/{x}/{y}{r}.png${CARTO_API_KEY ? '?api_key=' + CARTO_API_KEY : ''}`;
+
+L.tileLayer(_cartoUrl('dark-matter-nolabels'), {
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> · &copy; <a href="https://carto.com/attributions">CARTO</a> · datos: USGS, NOAA, NASA FIRMS, Open-Meteo, GDACS',
+  maxZoom: 19,
+  detectRetina: true,
 }).addTo(map);
-const labels = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png',{
-  subdomains:'abcd', maxZoom:19, opacity:.55 }).addTo(map);
+const labels = L.tileLayer(_cartoUrl('dark-matter-only-labels'), {
+  maxZoom: 19, opacity: .55, detectRetina: true,
+}).addTo(map);
 
 // ============================ GRUPOS DE CAPAS ============================
 const G = {
@@ -399,9 +405,10 @@ const G = {
   severe:  L.layerGroup().addTo(map),
   severemap:L.layerGroup().addTo(map),
   volcano: L.layerGroup().addTo(map),
+  mass:    L.layerGroup().addTo(map),   // deslizamientos · avalanchas · inundaciones repentinas
 };
 const counts = {}; let threats = []; let seismicWatch = []; let cdmxAir = null; let advisories = {}; let seenEventKeys=null; let audioCtx=null; let soundMuted=(localStorage.getItem('wr_muted')==='1'); let unitsImperial=(localStorage.getItem('wr_units')==='imperial');
-const FEATS = {eq:[], storms:[], gdacs:[], fires:[], forecast:[], air:[], security:[], volcano:[], secmap:[], severe:[], severemap:[]};
+const FEATS = {eq:[], storms:[], gdacs:[], fires:[], forecast:[], air:[], security:[], volcano:[], secmap:[], severe:[], severemap:[], mass:[]};
       const RADIUS_KM = 180;
 let ZONE_FILTER = null, zoneCircle = null;
   let COUNTRY_FILTER = null; let CATEGORY_FILTER = null;
@@ -420,6 +427,7 @@ const LAYERS = [
   {id:'secmap',  name:'Seguridad (mapa)',     sub:'Google News MX · aprox. estado',color:'#ff8a3d',group:G.secmap},
   {id:'severe',  name:'Granizo / Tornado (noticias)', sub:'GDELT · señales 24 h', color:'#9fd8ff', group:G.severe},
   {id:'severemap',name:'Granizo / Tornado (mapa MX)', sub:'Google News MX · aprox. estado', color:'#6ee7ff', group:G.severemap},
+  {id:'mass',    name:'Deslaves · Avalanchas · Aludes', sub:'GDELT · señales 24 h', color:'#c8a97e', group:G.mass},
   {id:'volcano', name:'Volcanes',            sub:'CENAPRED / GVP',   color:C.violet, group:G.volcano},
 ];
 
@@ -637,6 +645,7 @@ async function loadBaked(){
     bake('severe','severe_weather.geojson', severeLayer),
     bake('severemap','severe_weather_map.geojson', severeMapLayer),
     bake('volcano','volcanoes.geojson', volcanoLayer),
+    bake('mass','mass_movements.geojson', massLayer),
   ]);
 await loadStormTracks();
     renderVdM(); // usa la calidad del aire de CDMX ya cargada
@@ -678,18 +687,47 @@ function stormLayer(f){
   return m;
 }
 
+// Normaliza longitudes fuera de [-180,180] y divide la LineString cuando
+// cruza el antimeridiano, evitando las franjas horizontales que cruzan el mapa.
+function _normLon(lon){ while(lon>180) lon-=360; while(lon<-180) lon+=360; return lon; }
+function _splitAntimeridian(coords){
+  // coords: [[lat,lon], ...]
+  if(!coords||coords.length<2) return coords?[coords]:[];
+  const segs=[], cur=[coords[0]];
+  for(let i=1;i<coords.length;i++){
+    const prevLon=cur[cur.length-1][1], curLon=coords[i][1];
+    const diff=curLon-prevLon;
+    if(Math.abs(diff)>180){
+      // cruza antimeridiano: cerrar segmento actual y abrir uno nuevo
+      segs.push(cur.slice());
+      cur.length=0;
+    }
+    cur.push(coords[i]);
+  }
+  segs.push(cur);
+  return segs.filter(s=>s.length>=2);
+}
+
 async function loadStormTracks(){
   try{
     const gj = await (await fetch('./data/storm_tracks.geojson',{cache:'no-store'})).json();
     (gj.features||[]).forEach(function(f){
       const p = f.properties||{};
       if(f.geometry.type==='LineString'){
-        const latlngs = f.geometry.coordinates.map(function(c){return [c[1],c[0]];});
+        // Normalizar longitudes fuera de rango antes de dibujar
+        const rawLLs = f.geometry.coordinates.map(function(c){
+          return [c[1], _normLon(c[0])];
+        });
+        const segments = _splitAntimeridian(rawLLs);
         const isForecast = p.kind==='forecast';
-        const pl = L.polyline(latlngs,{color:isForecast?C.amber:C.cyan, weight:isForecast?2:2.5,
-          dashArray:isForecast?'6 6':null, opacity:.85}).addTo(G.storms);
-        const mid = latlngs[Math.floor(latlngs.length/2)] || latlngs[0] || [0,0];
-        FEATS.storms.push({lat:mid[0], lon:mid[1], props:p, marker:pl});
+        let lastPl;
+        segments.forEach(function(latlngs){
+          lastPl = L.polyline(latlngs,{color:isForecast?C.amber:C.cyan, weight:isForecast?2:2.5,
+            dashArray:isForecast?'6 6':null, opacity:.85}).addTo(G.storms);
+        });
+        const allPts = segments.flat();
+        const mid = allPts[Math.floor(allPts.length/2)] || allPts[0] || [0,0];
+        FEATS.storms.push({lat:mid[0], lon:mid[1], props:p, marker:lastPl});
       } else if(f.geometry.type==='Point'){
         const lon=f.geometry.coordinates[0], lat=f.geometry.coordinates[1];
         const isForecastPt = p.kind==='forecast_point';
@@ -732,15 +770,30 @@ async function loadStormTracks(){
     });
   }catch(e){ /* capa opcional: silencioso si falla */ }
 }
+// Mapa de íconos emoji por tipo de evento GDACS
+const GDACS_ICON = {
+  EQ:'🔵', TC:'🌀', FL:'🌊', VO:'🌋', DR:'☀️', WF:'🔥', TS:'🌊',
+  LS:'🏔️', AV:'❄️', FF:'💧', MS:'🪨', SS:'🌊', GL:'🧊',
+};
 function gdacsLayer(f){
   const [lon,lat]=f.geometry.coordinates, p=f.properties;
   const lvl=(p.alertlevel||'Green').toLowerCase();
   const c = lvl==='red'?C.red : lvl==='orange'?C.orange : C.green;
+  const et = (p.eventtype||'').toUpperCase();
+  const emoji = GDACS_ICON[et] || '⚠️';
 
-  const m=L.circleMarker([lat,lon],{radius:7,color:c,weight:1.6,fillColor:c,fillOpacity:.3});
-  m.bindPopup(`<div class="pp"><span class="ptag" style="background:${c}">${esc(p.type_label||'EVENTO')} · ${esc(p.alertlevel)}</span>
+  // Ícono visual único por tipo en lugar de círculo genérico
+  const iconHtml = `<div style="font-size:18px;line-height:1;filter:drop-shadow(0 0 3px ${c});
+    border:1.5px solid ${c};border-radius:50%;width:26px;height:26px;
+    display:flex;align-items:center;justify-content:center;
+    background:rgba(0,0,0,.55)">${emoji}</div>`;
+  const icon = L.divIcon({className:'',html:iconHtml,iconSize:[26,26],iconAnchor:[13,13]});
+  const m = L.marker([lat,lon],{icon});
+
+  m.bindPopup(`<div class="pp"><span class="ptag" style="background:${c}">${emoji} ${esc(p.type_label||'EVENTO')} · ${esc(p.alertlevel)}</span>
     <h3>${esc((p.name||'Evento').slice(0,70))}</h3>
     <div><span class="k">País:</span> <b>${esc(p.country||'-')}</b></div>
+    <div><span class="k">Inicio:</span> <b>${esc((p.fromdate||'').slice(0,10)||'-')}</b></div>
     ${p.url?`<div style="margin-top:6px"><a href="${esc(p.url)}" target="_blank" rel="noopener">Reporte GDACS ↗</a></div>`:''}</div>`);
   if(lvl==='orange'||lvl==='red'){
     threats.push({score:(lvl==='red'?160:120), kind:(p.type_label||'GDACS').toUpperCase().slice(0,8),
@@ -748,6 +801,32 @@ function gdacsLayer(f){
   }
   return m;
 }
+// ── CAPA: MOVIMIENTOS DE MASA (deslaves, avalanchas, aludes, inundaciones repentinas) ──
+const MASS_ICON = {
+  landslide:'🏔️', avalanche:'❄️', mudslide:'🪨', rockfall:'🪨',
+  flood:'💧', debris:'🏔️', glacier:'🧊', surge:'🌊', default:'⚠️',
+};
+function massLayer(f){
+  const [lon,lat]=f.geometry.coordinates, p=f.properties;
+  const kind=(p.layer||'default').toLowerCase();
+  const cnt=p.count||1;
+  const emoji = MASS_ICON[kind] || MASS_ICON.default;
+  const col = kind==='flood'||kind==='surge'?C.cyan : kind==='avalanche'||kind==='glacier'?'#a0d8ef' : '#c8a97e';
+  const iconHtml = `<div style="font-size:16px;line-height:1;filter:drop-shadow(0 0 3px ${col});
+    border:1.5px solid ${col};border-radius:50%;width:24px;height:24px;
+    display:flex;align-items:center;justify-content:center;
+    background:rgba(0,0,0,.55)">${emoji}</div>`;
+  const icon = L.divIcon({className:'',html:iconHtml,iconSize:[24,24],iconAnchor:[12,12]});
+  const m = L.marker([lat,lon],{icon});
+  m.bindPopup(`<div class="pp"><span class="ptag" style="background:${col}">${emoji} ${esc(kind.toUpperCase())} · señal noticias</span>
+    <h3>${esc(p.name||kind)}</h3>
+    <div><span class="k">Menciones:</span> <b>${cnt}</b></div>
+    <div class="cnote" style="margin-top:4px">Señal de cobertura noticiosa (GDELT 24 h).<br>No es un evento confirmado. Verifica en fuentes oficiales.</div>
+    </div>`);
+  FEATS.mass.push({lat,lon,props:p,marker:m});
+  return m;
+}
+
 function fireLayer(f){
   const [lon,lat]=f.geometry.coordinates, p=f.properties; const frp=p.frp||0;
   const c = frp>=50?C.red : frp>=15?C.orange : C.amber;
