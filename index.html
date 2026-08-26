@@ -380,7 +380,7 @@ document.getElementById('zoomOutBtn').addEventListener('click',()=>map.zoomOut()
 
 const CARTO_API_KEY = 'cb1_28jn_1_e0e40bdfc7ffb2ef4cb657f2';   // ← pon aquí tu clave gratuita de carto.com/basemaps
 const _cartoUrl = (style) =>
-  `https://basemaps.cartocdn.com/${style}/{z}/{x}/{y}{r}.png${CARTO_API_KEY ? '?api_key=' + CARTO_API_KEY : ''}`;
+  `https://{s}.basemaps.cartocdn.com/${style}/{z}/{x}/{y}{r}.png${CARTO_API_KEY ? '?key=' + CARTO_API_KEY : ''}`;
 
 L.tileLayer(_cartoUrl('dark-matter-nolabels'), {
   attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> · &copy; <a href="https://carto.com/attributions">CARTO</a> · datos: USGS, NOAA, NASA FIRMS, Open-Meteo, GDACS',
