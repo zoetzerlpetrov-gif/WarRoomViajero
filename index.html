@@ -404,9 +404,10 @@ const G = {
   severemap:L.layerGroup().addTo(map),
   volcano: L.layerGroup().addTo(map),
   mass:    L.layerGroup().addTo(map),   // deslizamientos · avalanchas · inundaciones repentinas
+  aurora:  L.layerGroup().addTo(map),   // oval de visibilidad de auroras boreales/australes (Kp)
 };
 const counts = {}; let threats = []; let seismicWatch = []; let cdmxAir = null; let advisories = {}; let seenEventKeys=null; let audioCtx=null; let soundMuted=(localStorage.getItem('wr_muted')==='1'); let unitsImperial=(localStorage.getItem('wr_units')==='imperial');
-const FEATS = {eq:[], storms:[], gdacs:[], fires:[], forecast:[], air:[], security:[], volcano:[], secmap:[], severe:[], severemap:[], mass:[]};
+const FEATS = {eq:[], storms:[], gdacs:[], fires:[], forecast:[], air:[], security:[], volcano:[], secmap:[], severe:[], severemap:[], mass:[], aurora:[]};
       const RADIUS_KM = 180;
 let ZONE_FILTER = null, zoneCircle = null;
   let COUNTRY_FILTER = null; let CATEGORY_FILTER = null;
@@ -427,6 +428,7 @@ const LAYERS = [
   {id:'severemap',name:'Granizo / Tornado (mapa MX)', sub:'Google News MX · aprox. estado', color:'#6ee7ff', group:G.severemap},
   {id:'mass',    name:'Deslaves · Avalanchas · Aludes', sub:'GDELT · señales 24 h', color:'#c8a97e', group:G.mass},
   {id:'volcano', name:'Volcanes',            sub:'CENAPRED / GVP',   color:C.violet, group:G.volcano},
+  {id:'aurora',  name:'Auroras boreales / australes', sub:'NOAA SWPC · Kp en vivo', color:'#44ff99', group:G.aurora},
 ];
 
 function buildLayerUI(){
@@ -451,7 +453,8 @@ function buildLayerUI(){
      <div class="row"><i style="background:${C.amber}"></i>Vigilancia</div>
      <div class="row"><i style="background:${C.orange}"></i>Riesgo</div>
      <div class="row"><i style="background:${C.red}"></i>Severo / crítico</div>
-     <div class="row"><i style="background:${C.cyan}"></i>Agua / tsunami / ciclón</div>`;
+     <div class="row"><i style="background:${C.cyan}"></i>Agua / tsunami / ciclón</div>
+     <div class="row"><i style="background:#44ff88"></i>🌌 Aurora boreal / tormenta geomagnética</div>`;
 }
 
 // ============================ HELPERS ============================
@@ -659,7 +662,7 @@ await loadStormTracks();
     if(cur.R){ sp = sp||{}; ['R','S','G'].forEach(k=>{ const x=cur[k]||{};
       sp[k]={scale:parseInt(x.Scale||0),text:x.Text||'none'}; }); }
   }catch(e){ /* CORS o red: se queda con el horneado */ }
-  renderSpace(sp); spaceThreats(sp);
+  renderSpace(sp); spaceThreats(sp); drawAuroraOval(sp);
 }
 async function bake(id,file,fn){
   try{
@@ -808,9 +811,17 @@ function gdacsLayer(f){
 }
 // ── CAPA: MOVIMIENTOS DE MASA (deslaves, avalanchas, aludes, inundaciones repentinas) ──
 const MASS_ICON = {
-  landslide:'🏔️', avalanche:'❄️', mudslide:'🪨', rockfall:'🪨',
-  flood:'💧', debris:'🏔️', glacier:'🧊', surge:'🌊',
-  lava:'🌋', talud:'⛰️', default:'⚠️',
+  landslide:'🏔️',   // deslizamiento de tierra
+  avalanche:'❄️',   // avalancha de nieve
+  mudslide:'🟫',    // flujo de lodo / lahar
+  rockfall:'🪨',    // caída de rocas / derrumbe
+  flood:'🌊',       // inundación / desbordamiento de río
+  debris:'🏚️',     // detritos / escombros
+  glacier:'🧊',     // desprendimiento glaciar (ártico, montaña, antártico)
+  surge:'🌊',       // marejada / mar de fondo
+  lava:'🌋',        // flujo de lava / erupción
+  talud:'⛰️',       // inestabilidad de talud
+  default:'⚠️',
 };
 function massLayer(f){
   const [lon,lat]=f.geometry.coordinates, p=f.properties;
@@ -836,8 +847,17 @@ function massLayer(f){
 function fireLayer(f){
   const [lon,lat]=f.geometry.coordinates, p=f.properties; const frp=p.frp||0;
   const c = frp>=50?C.red : frp>=15?C.orange : C.amber;
-  const m=L.circleMarker([lat,lon],{radius:Math.min(8,2+frp/12),color:c,weight:.8,
-    fillColor:c,fillOpacity:.55});
+  // FRP alto (≥50 MW): ícono 🔥 con tamaño proporcional; menores: círculo eficiente
+  let m;
+  if(frp>=50){
+    const fsz = Math.min(30, 18 + Math.round(frp/30));
+    m = L.marker([lat,lon],{icon:L.divIcon({className:'',
+      html:`<div style="font-size:${fsz}px;line-height:1;filter:drop-shadow(0 0 6px ${c})">🔥</div>`,
+      iconSize:[fsz,fsz],iconAnchor:[fsz/2,fsz]})});
+  } else {
+    m = L.circleMarker([lat,lon],{radius:Math.min(6,2+frp/10),color:c,weight:.8,
+      fillColor:c,fillOpacity:.55});
+  }
   m.bindPopup(`<div class="pp"><span class="ptag" style="background:${c}">INCENDIO</span>
     <h3>Foco de calor</h3>
     <div><span class="k">Potencia (FRP):</span> <b>${frp.toFixed(1)} MW</b></div>
@@ -849,10 +869,23 @@ const WMO = {0:'Despejado',1:'Mayormente despejado',2:'Parcial nublado',3:'Nubla
   48:'Niebla',51:'Llovizna',53:'Llovizna',55:'Llovizna fuerte',61:'Lluvia ligera',63:'Lluvia',
   65:'Lluvia fuerte',71:'Nieve',73:'Nieve',75:'Nieve fuerte',80:'Chubascos',81:'Chubascos',
   82:'Chubascos violentos',95:'Tormenta',96:'Tormenta granizo',99:'Tormenta severa'};
+// Emojis para cada nivel de alerta de pronóstico (0-4)
+const FORECAST_ICON = ['🌤️','🌧️','⛈️','🔴','🟣'];
 function forecastLayer(f){
   const [lon,lat]=f.geometry.coordinates, p=f.properties;
-  const cols=[C.green,C.amber,C.orange,C.red,C.violet]; const c=cols[p.level||0];
-  const m=L.circleMarker([lat,lon],{radius:6,color:c,weight:1.6,fillColor:c,fillOpacity:.25});
+  const lvl=p.level||0;
+  const cols=[C.green,C.amber,C.orange,C.red,C.violet]; const c=cols[lvl];
+  let m;
+  if(lvl >= 1){
+    // Nivel 1+ (vigilancia a extremo): ícono emoji con color de borde
+    const ic = FORECAST_ICON[lvl] || '⛈️';
+    const sz = lvl >= 3 ? 26 : 22;
+    const iconHtml = `<div style="font-size:${sz}px;line-height:1;filter:drop-shadow(0 0 5px ${c});border:1.5px solid ${c};border-radius:50%;width:${sz+6}px;height:${sz+6}px;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.65)">${ic}</div>`;
+    m = L.marker([lat,lon],{icon:L.divIcon({className:'',html:iconHtml,iconSize:[sz+6,sz+6],iconAnchor:[(sz+6)/2,(sz+6)/2]})});
+  } else {
+    // Nivel 0 (sin alerta): círculo pequeño discreto
+    m = L.circleMarker([lat,lon],{radius:4,color:c,weight:1.2,fillColor:c,fillOpacity:.2});
+  }
   const days=(p.days||[]);
   const maxR=Math.max(1,...days.map(d=>d.rain||0));
   const bars=days.map(d=>{
@@ -924,6 +957,76 @@ function spaceThreats(sp){
     sev:'G'+sp.G.scale, title:'Tormenta geomagnética', meta:'Kp '+Math.round(kpv), lat:0, lon:0, country:'Global'});
 }
 
+// ---- AURORAS BOREALES / AUSTRALES ----
+// Dibuja el oval de visibilidad estimado en el mapa usando el índice Kp actual.
+// La latitud geográfica del borde ecuatorial de la aurora se aproxima con:
+//   lat_visible ≈ 67 - Kp × 2.5  (hemisferio norte; sur es simétrico)
+// Referencia: NOAA Space Weather Prediction Center, "Aurora Oval Viewer".
+function drawAuroraOval(sp){
+  G.aurora.clearLayers();
+  const kpRaw = sp && sp.kp ? sp.kp.value : (sp && sp.G ? sp.G.scale * 1.5 : 0);
+  const kp = Math.max(0, Math.min(9, kpRaw));
+
+  // Borde ecuatorial estimado (grados de latitud)
+  const auroraLat = 67 - kp * 2.5;
+  // Distancia en km desde el polo al borde ecuatorial
+  const distKm = (90 - auroraLat) * 111.2;
+
+  // Color y opacidad según intensidad Kp
+  const col = kp >= 7 ? '#ff6644' : kp >= 5 ? '#ffcc44' : kp >= 3 ? '#44ff88' : '#44cc88';
+  const fillOp = Math.min(0.22, 0.05 + kp * 0.025);
+  const lineOp = Math.min(0.8, 0.3 + kp * 0.06);
+  const dashArr = kp >= 5 ? null : '6 4';
+
+  // Oval norte
+  L.circle([90, 0], {
+    radius: distKm * 1000,
+    color: col, weight: 2, opacity: lineOp, dashArray: dashArr,
+    fillColor: col, fillOpacity: fillOp, interactive: false,
+  }).addTo(G.aurora);
+
+  // Oval sur (auroras australes)
+  L.circle([-90, 0], {
+    radius: distKm * 1000,
+    color: col, weight: 2, opacity: lineOp, dashArray: dashArr,
+    fillColor: col, fillOpacity: fillOp, interactive: false,
+  }).addTo(G.aurora);
+
+  // Marcador interactivo en el borde norte si Kp es notable (>=3)
+  if(kp >= 3){
+    const popupKp = kp.toFixed(1);
+    const nivel = kp>=7?'Extrema (rara)':kp>=5?'Fuerte':kp>=3?'Moderada':'Menor';
+    const mk = L.marker([auroraLat, -30], {icon:L.divIcon({className:'',
+      html:`<div style="font-size:24px;line-height:1;filter:drop-shadow(0 0 8px ${col})">🌌</div>`,
+      iconSize:[28,28], iconAnchor:[14,28]})});
+    mk.bindPopup(`<div class="pp">
+      <span class="ptag" style="background:${col}">🌌 AURORA BOREAL · Kp ${popupKp}</span>
+      <h3>Aurora boreal / Tormenta geomagnética</h3>
+      <div><span class="k">Latitud mínima de visibilidad:</span> <b>~${Math.round(auroraLat)}°N / ${Math.round(auroraLat)}°S</b></div>
+      <div><span class="k">Intensidad Kp:</span> <b>${popupKp} / 9 · ${nivel}</b></div>
+      <div><span class="k">Escala geomagnética NOAA:</span> <b>G${sp&&sp.G?sp.G.scale:0}</b></div>
+      <div class="cnote" style="margin-top:5px">El óvalo verde en el mapa muestra la zona estimada donde la aurora podría verse esta noche con cielo despejado y sin contaminación lumínica. A mayor Kp, más al sur (o norte) llega la aurora. No es una predicción oficial — consulta NOAA SWPC.</div>
+      <div style="margin-top:6px"><a href="https://www.swpc.noaa.gov/products/aurora-30-minute-forecast" target="_blank" rel="noopener">Pronóstico oficial NOAA ↗</a></div>
+    </div>`);
+    mk.addTo(G.aurora);
+    FEATS.aurora.push({lat:auroraLat, lon:-30, props:{kp, nivel}, marker:mk});
+  }
+
+  // Si Kp bajo o cero: mostrar el oval pero sin marcador (aurora sólo polar)
+  if(kp < 3 && kp >= 0){
+    const mk2 = L.marker([auroraLat, 0], {icon:L.divIcon({className:'',
+      html:`<div style="font-size:14px;line-height:1;opacity:.7">🌌</div>`,
+      iconSize:[16,16], iconAnchor:[8,8]})});
+    mk2.bindPopup(`<div class="pp">
+      <span class="ptag" style="background:${col}">AURORA POLAR · Kp ${kp.toFixed(1)}</span>
+      <h3>Aurora boreal (baja actividad)</h3>
+      <div><span class="k">Visible sólo arriba de:</span> <b>~${Math.round(auroraLat)}°N</b></div>
+      <div class="cnote">Actividad geomagnética baja. La aurora es visible principalmente en zonas árticas y subárticas en condiciones ideales.</div>
+    </div>`);
+    mk2.addTo(G.aurora);
+  }
+}
+
 const HNC={1:['Amarillo','#ffd23f','5 y 6'],2:['Rosa','#ff6fb5','7 y 8'],
   3:['Rojo','#ff4242','3 y 4'],4:['Verde','#46e0a0','1 y 2'],5:['Azul','#5b9dff','9 y 0']};
 function renderVdM(){
@@ -971,7 +1074,10 @@ function severeLayer(f){
   const [lon,lat] = f.geometry.coordinates, p = f.properties;
   const cnt = p.count||1, isTornado = p.layer==='tornado';
   const col = isTornado ? '#6ee7ff' : '#9fd8ff';
-  const m = L.circleMarker([lat,lon],{radius:Math.min(4+Math.sqrt(cnt),16),color:col,weight:1,fillColor:col,fillOpacity:.55});
+  const ic = isTornado ? '🌪️' : '🧊';
+  const sz = Math.min(26, 16 + Math.round(Math.sqrt(cnt)));
+  const iconHtml = `<div style="font-size:${sz}px;line-height:1;filter:drop-shadow(0 0 5px ${col});border:1.5px solid ${col};border-radius:50%;width:${sz+8}px;height:${sz+8}px;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.65)">${ic}</div>`;
+  const m = L.marker([lat,lon],{icon:L.divIcon({className:'',html:iconHtml,iconSize:[sz+8,sz+8],iconAnchor:[(sz+8)/2,(sz+8)/2]})});
   const kw = isTornado ? 'tornado' : 'granizo';
   const gnews = 'https://news.google.com/search?q='+encodeURIComponent(kw+' '+(p.name||''))+'&hl=es-419';
   m.bindPopup(`<div class="pp"><span class="ptag" style="background:${col}">${isTornado?'TORNADO':'GRANIZO'}</span>
@@ -1142,9 +1248,12 @@ function volcanoLayer(f){
   const [lon,lat]=f.geometry.coordinates, p=f.properties;
   const inactive = p.status==='inactivo';
   const col = inactive ? C.muted : C.violet;
+  const glow = inactive ? 'rgba(111,138,130,.4)' : 'rgba(181,108,255,.7)';
+  const sz = inactive ? 18 : (p.ash_active ? 26 : 22);
+  const ic = p.ash_active ? '🌋' : (inactive ? '🏔️' : '🌋');
   const m=L.marker([lat,lon],{icon:L.divIcon({className:'',
-    html:`<div style="width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:13px solid ${col};opacity:${inactive?0.55:1};filter:drop-shadow(0 0 4px ${inactive?'rgba(111,138,130,.5)':'rgba(181,108,255,.6)'})"></div>`,
-    iconSize:[14,13],iconAnchor:[7,13]})});
+    html:`<div style="font-size:${sz}px;line-height:1;filter:drop-shadow(0 0 ${inactive?3:6}px ${glow});opacity:${inactive?0.6:1}">${ic}</div>`,
+    iconSize:[sz,sz],iconAnchor:[sz/2,sz]})});
   m.bindPopup(`<div class="pp"><span class="ptag" style="background:${col}">${inactive?'VOLCÁN INACTIVO':'VOLCÁN'}</span>
     ${p.ash_active?'<span class="ptag" style="background:'+C.orange+';margin-left:5px">CENIZA</span>':''}
     <h3>${esc(p.name)}</h3>
