@@ -1114,6 +1114,12 @@ MASS_QUERIES = [
                    'OR glacier OR "glacial lake" OR GLOF OR "glaciar nepal" OR "seracs")'),
     ("surge",      '("mar de fondo" OR marejada OR "oleaje extremo" OR "swell" '
                    'OR "marejada ciclonica" OR "marea de tormenta" OR "storm surge")'),
+    ("lava",       '("flujo de lava" OR "colada de lava" OR "corriente de lava" '
+                   'OR "lava flow" OR "efusion de lava" OR "emanacion de lava" '
+                   'OR lahars OR "rio de lava")'),
+    ("talud",      '("deslizamiento de talud" OR "inestabilidad de talud" OR "falla de talud" '
+                   'OR "colapso de talud" OR "derrumbe de talud" OR "talud inestable" '
+                   'OR "slope failure" OR "slope collapse")'),
 ]
 
 
