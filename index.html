@@ -454,7 +454,17 @@ function buildLayerUI(){
      <div class="row"><i style="background:${C.orange}"></i>Riesgo</div>
      <div class="row"><i style="background:${C.red}"></i>Severo / crítico</div>
      <div class="row"><i style="background:${C.cyan}"></i>Agua / tsunami / ciclón</div>
-     <div class="row"><i style="background:#44ff88"></i>🌌 Aurora boreal / tormenta geomagnética</div>`;
+     <div class="row"><i style="background:#44ff88"></i>🌌 Aurora boreal / tormenta geomagnética</div>
+     <div style="margin-top:5px;font-size:9px;color:var(--muted)">SISMOS 🫨 — escala de colores:</div>
+     <div class="row"><i style="background:#44aaff"></i>Micro &lt;M2.5</div>
+     <div class="row"><i style="background:#46e0a0"></i>Menor M2.5–4</div>
+     <div class="row"><i style="background:${C.amber}"></i>Leve M4–5</div>
+     <div class="row"><i style="background:${C.orange}"></i>Moderado M5–6</div>
+     <div class="row"><i style="background:${C.red}"></i>Fuerte M6–7</div>
+     <div class="row"><i style="background:#b56cff"></i>Violento M7+</div>
+     <div style="margin-top:5px;font-size:9px;color:var(--muted)">CALIDAD DE AIRE — ícono por nivel:</div>
+     <div class="row">😊 Buena &nbsp;😐 Aceptable &nbsp;😷 Dañina</div>
+     <div class="row">🤧 Mala &nbsp;🤢 Muy mala &nbsp;☠️ Peligrosa</div>`;
 }
 
 // ============================ HELPERS ============================
@@ -462,7 +472,10 @@ function pingIcon(cls=''){ return L.divIcon({className:'',html:
   `<div class="ping ${cls}"><div class="ring"></div><div class="core"></div></div>`,
   iconSize:[8,8], iconAnchor:[4,4]}); }
 
-function eqColor(m){ return m>=6?C.red : m>=4.5?C.orange : m>=2.5?C.amber : C.green; }
+// Escala sísmica estilo México: azul (micro) → verde → ámbar → naranja → rojo → morado (violento)
+function eqColor(m){ return m>=7?'#b56cff' : m>=6?C.red : m>=5?C.orange : m>=4?C.amber : m>=2.5?'#46e0a0' : '#44aaff'; }
+// Etiquetas de escala para el popup / leyenda
+function eqLabel(m){ return m>=7?'Violento' : m>=6?'Fuerte' : m>=5?'Moderado' : m>=4?'Leve' : m>=2.5?'Menor' : 'Micro'; }
 function fmtAgo(ms){ const s=(Date.now()-ms)/1000;
   if(s<3600) return Math.round(s/60)+' min'; if(s<86400) return Math.round(s/3600)+' h';
   return Math.round(s/86400)+' d'; }
@@ -497,7 +510,19 @@ async function loadEarthquakes(){
       });
     }
     if(tsu || m>=4.5 || recent){
-            const pm=L.marker([lat,lon],{icon:pingIcon(tsu?'tsu':'')}).addTo(G.eq).bindPopup(eqPopup(p,depth,tsu,m)); FEATS.eq.push({lat:lat,lon:lon,props:p,marker:pm});
+      if(m>=4.5){
+        // Ícono 🫨 sísmico para distinguirlo visualmente de burbujas de calidad del aire
+        const sz = m>=7?30 : m>=6?26 : m>=5?22 : 18;
+        const eqIc = L.divIcon({className:'',
+          html:`<div style="font-size:${sz}px;line-height:1;filter:drop-shadow(0 0 6px ${eqColor(m)})">${tsu?'🌊':'🫨'}</div>`,
+          iconSize:[sz,sz], iconAnchor:[sz/2,sz/2]});
+        const pm=L.marker([lat,lon],{icon:eqIc}).addTo(G.eq).bindPopup(eqPopup(p,depth,tsu,m));
+        FEATS.eq.push({lat:lat,lon:lon,props:p,marker:pm});
+      } else {
+        // Sismos recientes pequeños o tsunamis sin magnitud: pulso clásico
+        const pm=L.marker([lat,lon],{icon:pingIcon(tsu?'tsu':'')}).addTo(G.eq).bindPopup(eqPopup(p,depth,tsu,m));
+        FEATS.eq.push({lat:lat,lon:lon,props:p,marker:pm});
+      }
     }
     if(m>=4.5 || tsu){
       threats.push({score:(tsu?100:0)+m*10, kind:'SISMO', color:eqColor(m), sev:m.toFixed(1),
@@ -648,6 +673,7 @@ async function loadBaked(){
     bake('volcano','volcanoes.geojson', volcanoLayer),
     bake('mass','mass_movements.geojson', massLayer),
   ]);
+  addMxStaticVolcanoes(); // añade volcanes MX que no vengan en el GeoJSON horneado
 await loadStormTracks();
     renderVdM(); // usa la calidad del aire de CDMX ya cargada
   try{ advisories = (await (await fetch('./data/advisories.json',{cache:'no-store'})).json()).data || {}; }catch(e){}
@@ -915,10 +941,18 @@ function forecastLayer(f){
   return m;
 }
 const AQI_COLS=['#46e0a0','#ffd23f','#ff8c2b','#ff4242','#b56cff','#8b1a1a'];
+// Caras que representan cómo se siente el aire en cada nivel:
+// 0=Buena 1=Aceptable 2=Mala para grupos sensibles 3=Mala 4=Muy mala 5=Peligrosa
+const AIR_ICONS=['😊','😐','😷','🤧','🤢','☠️'];
 function airLayer(f){
   const [lon,lat]=f.geometry.coordinates, p=f.properties; const c=p.color||C.muted;
   if(p.name==='Ciudad de Mexico') cdmxAir=f;
-  const m=L.circleMarker([lat,lon],{radius:7,color:c,weight:1.6,fillColor:c,fillOpacity:.4});
+  const lvl=Math.min(5,Math.max(0,p.level||0));
+  const ic=AIR_ICONS[lvl];
+  const sz=lvl>=3?26:lvl>=2?23:20;
+  const m=L.marker([lat,lon],{icon:L.divIcon({className:'',
+    html:`<div style="font-size:${sz-5}px;line-height:1;text-align:center;background:${c}30;border:1.5px solid ${c};border-radius:50%;width:${sz}px;height:${sz}px;display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 0 4px ${c}55)">${ic}</div>`,
+    iconSize:[sz,sz],iconAnchor:[sz/2,sz/2]})});
   m.bindPopup(`<div class="pp"><span class="ptag" style="background:${c}">AIRE · ${esc(p.level_label)}</span>
     <h3>${esc(p.name)}</h3>
     <div><span class="k">US AQI:</span> <b>${p.us_aqi==null?'—':p.us_aqi}</b></div>
@@ -1269,6 +1303,71 @@ function volcanoLayer(f){
       lat, lon, country:esc(p.country)});
   }
   return m;
+}
+
+// ============================ VOLCANES MÉXICO — BASE ESTÁTICA ============================
+// Lista completa de volcanes mexicanos que siempre se muestra, independientemente del ciclo
+// de horneado. Si ya están en el GeoJSON horneado (volcanoes.geojson), se omiten por nombre.
+const MX_VOLCANOES_STATIC = [
+  // ── Activos / monitoreados por CENAPRED o con actividad histórica reciente ──
+  {name:'Popocatépetl',              lat:19.0222, lon:-98.6222,  status:'activo'},
+  {name:'Colima (Volcán de Fuego)',  lat:19.5144, lon:-103.6167, status:'activo'},
+  {name:'El Chichón',               lat:17.3600, lon:-93.2275,  status:'activo'},
+  {name:'Tacaná',                   lat:15.1322, lon:-92.1103,  status:'activo'},
+  {name:'Ceboruco',                 lat:21.1250, lon:-104.5079, status:'activo'},
+  {name:'Las Tres Vírgenes',        lat:27.4736, lon:-112.5928, status:'activo'},
+  {name:'San Martín Tuxtla',        lat:18.5667, lon:-95.2000,  status:'activo'},
+  {name:'Pico de Orizaba (Citlaltépetl)', lat:19.0253, lon:-97.2686, status:'activo'},
+  {name:'El Jorullo',               lat:18.9747, lon:-101.7172, status:'activo'},
+  {name:'Paricutín',                lat:19.4889, lon:-102.2508, status:'activo'},
+  // ── Inactivos / dormidos ──
+  {name:'Iztaccíhuatl',             lat:19.1789, lon:-98.6422,  status:'inactivo'},
+  {name:'Nevado de Toluca (Xinantécatl)', lat:19.1081, lon:-99.7578, status:'inactivo'},
+  {name:'La Malinche (Matlalcuéitl)', lat:19.2325, lon:-98.0164, status:'inactivo'},
+  {name:'Cofre de Perote (Nauhcampatépetl)', lat:19.4922, lon:-97.1533, status:'inactivo'},
+  {name:'Nevado de Colima',         lat:19.5422, lon:-103.6069, status:'inactivo'},
+  {name:'Ajusco',                   lat:19.2075, lon:-99.2622,  status:'inactivo'},
+  {name:'Sangangüey',               lat:22.0489, lon:-104.7347, status:'inactivo'},
+  {name:'Volcán Tequila',           lat:20.7444, lon:-103.8514, status:'inactivo'},
+  {name:'Sierra Chichinautzin',     lat:19.0800, lon:-99.1000,  status:'inactivo'},
+];
+
+function addMxStaticVolcanoes(){
+  // Conjunta de nombres ya horneados (comparación insensible a mayúsculas)
+  const existing = new Set(FEATS.volcano.map(function(f){ return (f.props.name||'').toLowerCase().trim(); }));
+  let added = 0;
+  MX_VOLCANOES_STATIC.forEach(function(v){
+    const key = v.name.toLowerCase().trim();
+    // Comprobar también variantes sin acentos / paréntesis abreviados
+    const keySimple = key.replace(/[()]/g,'').replace(/\s+/g,' ').trim();
+    const alreadyIn = existing.has(key) ||
+      [...existing].some(function(e){ return e.indexOf(keySimple.split(' ')[0])>=0 && e.indexOf(keySimple.split(' ').slice(-1)[0])>=0; });
+    if(alreadyIn) return;
+    const fakeFeature = {
+      geometry:{ type:'Point', coordinates:[v.lon, v.lat] },
+      properties:{
+        layer:'volcano', name:v.name, country:'México',
+        url:'https://www.gob.mx/cenapred',
+        status:v.status,
+        note:(v.status==='activo'
+          ? 'Nivel de actividad: consultar fuente oficial (CENAPRED/GVP).'
+          : 'Volcán inactivo/dormido: sin monitoreo de erupción en tiempo real.'),
+        ash_active:false,
+        ash_note:'Sin ceniza reportada actualmente (SIGMET).',
+      }
+    };
+    const mk = volcanoLayer(fakeFeature);
+    if(mk){
+      mk.addTo(G.volcano);
+      FEATS.volcano.push({lat:v.lat, lon:v.lon, props:fakeFeature.properties, marker:mk});
+      added++;
+    }
+  });
+  if(added>0){
+    counts.volcano = (counts.volcano||0) + added;
+    const el = document.getElementById('cnt-volcano');
+    if(el) el.textContent = counts.volcano;
+  }
 }
 
 // ============================ THREAT BOARD ============================
