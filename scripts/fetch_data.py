@@ -591,27 +591,48 @@ def fetch_forecast():
 # -------------------------------------------------------------------------
 
 VOLCANOES = [
-    ("Popocatepetl", 19.023, -98.622, "Mexico", "https://www.gob.mx/cenapred"),
-    ("Colima (Volcan de Fuego)", 19.514, -103.617, "Mexico", "https://volcano.si.edu"),
-    ("El Chichon", 17.360, -93.228, "Mexico", "https://volcano.si.edu"),
+    # ── México: activos / con actividad histórica reciente / monitoreados por CENAPRED ──
+    ("Popocatepetl", 19.0222, -98.6222, "Mexico", "https://www.gob.mx/cenapred"),
+    ("Colima (Volcan de Fuego)", 19.5144, -103.6167, "Mexico", "https://volcano.si.edu"),
+    ("El Chichon", 17.3600, -93.2275, "Mexico", "https://volcano.si.edu"),
+    ("Tacana", 15.1322, -92.1103, "Mexico", "https://volcano.si.edu"),
+    ("Ceboruco", 21.1250, -104.5079, "Mexico", "https://www.gob.mx/cenapred"),
+    ("Las Tres Virgenes", 27.4736, -112.5928, "Mexico", "https://volcano.si.edu"),
+    ("San Martin Tuxtla", 18.5667, -95.2000, "Mexico", "https://volcano.si.edu"),
+    ("Pico de Orizaba (Citlaltepetl)", 19.0253, -97.2686, "Mexico", "https://www.gob.mx/cenapred"),
+    ("El Jorullo", 18.9747, -101.7172, "Mexico", "https://volcano.si.edu"),
+    ("Paricutin", 19.4889, -102.2508, "Mexico", "https://volcano.si.edu"),
+    # ── América Central ──
     ("Fuego", 14.473, -90.880, "Guatemala", "https://volcano.si.edu"),
     ("Pacaya", 14.382, -90.601, "Guatemala", "https://volcano.si.edu"),
+    # ── EE.UU. ──
     ("Kilauea", 19.421, -155.287, "EE.UU.", "https://volcanoes.usgs.gov"),
     ("Mauna Loa", 19.475, -155.608, "EE.UU.", "https://volcanoes.usgs.gov"),
+    # ── Europa ──
     ("Etna", 37.748, 14.999, "Italia", "https://volcano.si.edu"),
     ("Stromboli", 38.789, 15.213, "Italia", "https://volcano.si.edu"),
+    ("Reykjanes / Fagradalsfjall", 63.900, -22.270, "Islandia", "https://volcano.si.edu"),
+    # ── Asia / Oceanía ──
     ("Sakurajima", 31.585, 130.657, "Japon", "https://volcano.si.edu"),
     ("Merapi", -7.540, 110.446, "Indonesia", "https://volcano.si.edu"),
-    ("Reykjanes / Fagradalsfjall", 63.900, -22.270, "Islandia", "https://volcano.si.edu"),
+    # ── América del Sur ──
     ("Villarrica", -39.420, -71.930, "Chile", "https://volcano.si.edu"),
     ("Cotopaxi", -0.677, -78.436, "Ecuador", "https://volcano.si.edu"),
+    # ── África ──
     ("Nyiragongo", -1.520, 29.250, "RD Congo", "https://volcano.si.edu"),
 ]
 
 VOLCANOES_INACTIVOS = [
-    ("Iztaccihuatl", 19.179, -98.642, "Mexico", "https://www.gob.mx/cenapred"),
-    ("Nevado de Toluca (Xinantecatl)", 19.108, -99.758, "Mexico", "https://www.gob.mx/cenapred"),
-    ("Ajusco", 19.207, -99.262, "Mexico", "https://www.gob.mx/cenapred"),
+    # ── México: inactivos / dormidos ──
+    ("Iztaccihuatl", 19.1789, -98.6422, "Mexico", "https://www.gob.mx/cenapred"),
+    ("Nevado de Toluca (Xinantecatl)", 19.1081, -99.7578, "Mexico", "https://www.gob.mx/cenapred"),
+    ("La Malinche (Matlalcueitl)", 19.2325, -98.0164, "Mexico", "https://www.gob.mx/cenapred"),
+    ("Cofre de Perote (Nauhcampatepetl)", 19.4922, -97.1533, "Mexico", "https://volcano.si.edu"),
+    ("Nevado de Colima", 19.5422, -103.6069, "Mexico", "https://volcano.si.edu"),
+    ("Ajusco", 19.2075, -99.2622, "Mexico", "https://www.gob.mx/cenapred"),
+    ("Sanganguey", 22.0489, -104.7347, "Mexico", "https://volcano.si.edu"),
+    ("Volcan Tequila", 20.7444, -103.8514, "Mexico", "https://volcano.si.edu"),
+    ("Sierra Chichinautzin", 19.0800, -99.1000, "Mexico", "https://volcano.si.edu"),
 ]
 
 def fetch_volcanoes():
