@@ -1162,6 +1162,50 @@ def fetch_mass_movements():
 # Orquestacion
 # -------------------------------------------------------------------------
 
+def fetch_aircraft():
+    """
+    Obtiene aeronaves en vivo desde airplanes.live (sin restricciones CORS en el servidor)
+    y guarda data/aircraft.json.  El mapa lo lee como archivo estático (mismo origen).
+    Cubre México + frontera con EE.UU. y Centroamérica con puntos solapados de 250 nm.
+    """
+    points = [
+        (23.6, -102.5, 250),   # Centro de México
+        (28.5, -106.0, 250),   # Norte México / SW Estados Unidos
+        (17.0, -92.0,  250),   # Sur México / Centroamérica
+        (32.0, -117.0, 200),   # Baja California / San Diego
+        (20.5, -87.0,  200),   # Yucatán / Caribe
+        (19.4, -99.1,  150),   # CDMX y alrededores (detalle extra)
+    ]
+    aircraft = {}   # dedup por hex (ICAO 24 bits)
+    errors = []
+    for lat, lon, dist in points:
+        url = f"https://api.airplanes.live/v2/point/{lat}/{lon}/{dist}"
+        try:
+            raw = http_get(url)
+            data = json.loads(raw)
+            for a in data.get("ac", []):
+                if a.get("lat") and a.get("lon"):
+                    hex_id = a.get("hex", "")
+                    if hex_id not in aircraft:
+                        aircraft[hex_id] = a
+        except Exception as e:
+            errors.append(str(e))
+
+    out = {
+        "ac": list(aircraft.values()),
+        "fetched_at": now_iso(),
+        "count": len(aircraft),
+    }
+    path = os.path.join(DATA_DIR, "aircraft.json")
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(out, f, separators=(",", ":"))
+    if errors:
+        print(f"aircraft: {len(aircraft)} aeronaves | {len(errors)} errores: {errors[:3]}")
+    else:
+        print(f"aircraft: {len(aircraft)} aeronaves guardadas")
+    return len(aircraft)
+
+
 def main():
     os.makedirs(DATA_DIR, exist_ok=True)
     print(f"== CLIMA TACTICO :: actualizacion {now_iso()} ==")
