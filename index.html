@@ -1383,8 +1383,15 @@ function addMxStaticVolcanoes(){
   }
 }
 
-// ============================ AERONAVES EN VIVO (OpenSky Network) ============================
-function acCategory(callsign, category){
+// ============================ AERONAVES EN VIVO (airplanes.live — CORS libre) ============================
+// OpenSky bloquea GitHub Pages por CORS; usamos airplanes.live (gratis, sin key, CORS OK)
+// Fallback: adsb.lol con el mismo formato de respuesta
+const AC_APIS = [
+  c => `https://api.airplanes.live/v2/point/${c.lat.toFixed(4)}/${c.lng.toFixed(4)}/250`,
+  c => `https://api.adsb.lol/v2/lat/${c.lat.toFixed(4)}/lon/${c.lng.toFixed(4)}/dist/250`,
+];
+
+function acCategory(callsign){
   const cs = (callsign||'').trim();
   if(AC_COMMERCIAL.test(cs)) return 'commercial';
   if(AC_N_REG.test(cs))      return 'nreg';
@@ -1401,8 +1408,7 @@ function acLabel(cat){
   return 'Otro (militar / heli / globo…)';
 }
 function aircraftIcon(heading, color){
-  const h = (heading||0);
-  // Triángulo apuntando hacia arriba, rotado por el heading
+  const h = (heading==null||isNaN(heading)) ? 0 : heading;
   return L.divIcon({
     className:'',
     html:`<div style="width:18px;height:18px;display:flex;align-items:center;justify-content:center;">
@@ -1412,62 +1418,66 @@ function aircraftIcon(heading, color){
     iconSize:[18,18], iconAnchor:[9,9]
   });
 }
-function aircraftPopup(s){
-  // s = OpenSky state vector array
-  const cs    = (s[1]||'').trim()||'—';
-  const ctry  = s[2]||'—';
-  const alt   = s[7]!=null ? Math.round(s[7])+'m ('+(Math.round(s[7]*3.28084))+'ft)' : (s[13]!=null?Math.round(s[13])+'m':' —');
-  const spd   = s[9]!=null ? Math.round(s[9]*1.94384)+' kt ('+Math.round(s[9]*3.6)+' km/h)' : '—';
-  const hdg   = s[10]!=null ? Math.round(s[10])+'°' : '—';
-  const vr    = s[11]!=null ? (s[11]>=0?'+':'')+s[11].toFixed(1)+' m/s' : '—';
-  const grnd  = s[8] ? '🟡 En tierra' : '🔵 En vuelo';
-  const icao  = s[0]||'';
-  const cat   = acCategory(s[1], s[17]);
-  const fr24  = `https://www.flightradar24.com/${cs.replace(/\s/g,'')}`;
+function aircraftPopup(a){
+  // a = objeto de airplanes.live / adsb.lol (formato readsb)
+  const cs   = (a.flight||a.r||'').trim()||'—';
+  const reg  = a.r||'—';
+  const typ  = a.t||'—';
+  const icao = a.hex||'';
+  // Altitud en pies (alt_baro) → convertir a metros
+  const altFt = a.alt_baro!=null && a.alt_baro!=='ground' ? Math.round(a.alt_baro) : null;
+  const alt  = altFt!=null ? altFt+'ft ('+Math.round(altFt/3.281)+'m)' : (a.on_ground?'En tierra':'—');
+  // Velocidad en nudos
+  const spd  = a.gs!=null ? Math.round(a.gs)+' kt ('+Math.round(a.gs*1.852)+' km/h)' : '—';
+  const hdg  = a.track!=null ? Math.round(a.track)+'°' : '—';
+  // Velocidad vertical en ft/min
+  const vr   = a.baro_rate!=null ? (a.baro_rate>=0?'+':'')+Math.round(a.baro_rate)+' ft/min' : '—';
+  const grnd = a.on_ground ? '🟡 En tierra' : '🔵 En vuelo';
+  const cat  = acCategory(a.flight);
+  const fr24 = `https://www.flightradar24.com/${cs.replace(/\s/g,'')}`;
   return `<b>✈ ${esc(cs)}</b> <span style="opacity:.6;font-size:10px">${esc(icao)}</span><br>
     ${grnd}<br>
-    País: ${esc(ctry)}<br>
+    Registro: ${esc(reg)} · Tipo: ${esc(typ)}<br>
     Altitud: ${esc(alt)}<br>
     Velocidad: ${esc(spd)}<br>
     Rumbo: ${esc(hdg)}<br>
     Vel. vertical: ${esc(vr)}<br>
-    Tipo: ${acLabel(cat)}<br>
+    Categoría: ${acLabel(cat)}<br>
     <a href="${fr24}" target="_blank" style="color:#60d0ff;font-size:10px">Ver en Flightradar24 ↗</a>`;
 }
 
 async function loadAircraft(){
   if(!map.hasLayer(G.aircraft)) return;
-  try{
-    const b = map.getBounds();
-    const lamin = b.getSouth().toFixed(4);
-    const lomin = b.getWest().toFixed(4);
-    const lamax = b.getNorth().toFixed(4);
-    const lomax = b.getEast().toFixed(4);
-    // OpenSky API gratuito, sin API key, CORS habilitado para browsers
-    const url = `https://opensky-network.org/api/states/all?lamin=${lamin}&lomin=${lomin}&lamax=${lamax}&lomax=${lomax}`;
-    const r = await fetch(url, {cache:'no-store'});
-    if(!r.ok) return;
-    const data = await r.json();
-    if(!data||!data.states) return;
+  const center = map.getCenter();
+  let data = null;
+  // Intentar APIs en orden hasta que una responda
+  for(const mkUrl of AC_APIS){
+    try{
+      const url = mkUrl(center);
+      const r = await fetch(url, {cache:'no-store'});
+      if(!r.ok) continue;
+      const d = await r.json();
+      if(d && Array.isArray(d.ac)){ data = d; break; }
+    } catch(e){ /* próxima API */ }
+  }
+  if(!data || !data.ac) return;
 
-    G.aircraft.clearLayers(); FEATS.aircraft=[];
-    let n=0;
-    data.states.forEach(s=>{
-      const lat=s[6], lon=s[5];
-      if(lat==null||lon==null) return;
-      const cat = acCategory(s[1], s[17]);
-      if(!AC_FILTERS[cat]) return;           // filtro de categoría
-      if(s[8] && cat!=='other') return;      // ocultar aeronaves en tierra salvo categoría "otros"
-      const color = acColor(cat);
-      const m = L.marker([lat,lon],{icon:aircraftIcon(s[10],color)})
-        .bindPopup(aircraftPopup(s), {maxWidth:260});
-      m.addTo(G.aircraft);
-      FEATS.aircraft.push({lat,lon,marker:m,state:s,cat});
-      n++;
-    });
-    const el=document.getElementById('cnt-aircraft');
-    if(el) el.textContent=n;
-  } catch(e){ /* silencioso — OpenSky puede dar 503 en picos de tráfico */ }
+  G.aircraft.clearLayers(); FEATS.aircraft=[];
+  let n=0;
+  data.ac.forEach(a=>{
+    if(a.lat==null||a.lon==null) return;
+    const cat = acCategory(a.flight);
+    if(!AC_FILTERS[cat]) return;
+    if(a.on_ground && cat!=='other') return;   // mostrar en tierra solo para "otros" (helicópteros, etc.)
+    const color = acColor(cat);
+    const m = L.marker([a.lat, a.lon],{icon:aircraftIcon(a.track, color)})
+      .bindPopup(aircraftPopup(a), {maxWidth:260});
+    m.addTo(G.aircraft);
+    FEATS.aircraft.push({lat:a.lat, lon:a.lon, marker:m, ac:a, cat});
+    n++;
+  });
+  const el=document.getElementById('cnt-aircraft');
+  if(el) el.textContent=n;
 }
 
 function buildAircraftSubfilters(){
