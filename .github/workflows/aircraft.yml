@@ -1,0 +1,51 @@
+name: Aeronaves en vivo (cada 10 min)
+
+# Corre cada 10 minutos para hornear data/aircraft.json desde airplanes.live.
+# El mapa lee este archivo como estático (mismo origen GitHub Pages), sin CORS.
+# Nota: GitHub puede retrasar el cron varios minutos en horas de alta carga.
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:       # permite ejecutarlo a mano desde la pestaña Actions
+
+permissions:
+  contents: write          # necesario para commitear data/aircraft.json
+
+concurrency:
+  group: aeronaves
+  cancel-in-progress: true  # si ya hay uno corriendo, cancelar el anterior
+
+jobs:
+  bake:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clonar repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Obtener aeronaves de airplanes.live
+        run: |
+          python3 - <<'EOF'
+          import sys, os
+          sys.path.insert(0, "scripts")
+          # Importar solo lo necesario del script principal
+          import fetch_data
+          os.makedirs(fetch_data.DATA_DIR, exist_ok=True)
+          fetch_data.fetch_aircraft()
+          EOF
+
+      - name: Commitear data/aircraft.json
+        run: |
+          git config user.name  "clima-tactico-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add data/aircraft.json
+          if git diff --staged --quiet; then
+            echo "Sin cambios en aircraft.json."
+          else
+            git commit -m "aeronaves: $(date -u +'%Y-%m-%d %H:%MZ')"
+            git push
+          fi
