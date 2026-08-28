@@ -1493,37 +1493,55 @@ function aircraftPopup(a){
 
 async function loadAircraft(){
   if(!map.hasLayer(G.aircraft)) return;
-  // Lee el archivo estático horneado por GitHub Actions (mismo origen, sin CORS).
-  // El workflow aircraft.yml lo actualiza cada 10 minutos.
-  let data = null;
-  try{
-    const r = await fetch('./data/aircraft.json', {cache:'no-store'});
-    if(!r.ok){ console.warn('aircraft.json no disponible:', r.status); return; }
-    data = await r.json();
-  } catch(e){ console.warn('aircraft fetch error:', e); return; }
-  if(!data || !Array.isArray(data.ac)) return;
+  // Llama directo a la API desde el browser (airplanes.live/adsb.lol tienen CORS abierto).
+  // El archivo horneado (aircraft.json) solo se usa como fallback si ambas APIs fallan.
+  const center = map.getCenter();
+  let acList = null;
 
-  // Calcular antigüedad del archivo para mostrar en el contador
-  const age = data.fetched_at
-    ? Math.round((Date.now() - new Date(data.fetched_at)) / 60000)
-    : null;
+  // Intentar APIs en vivo (browser tiene CORS; el bloqueo 403 solo aplica a IPs de GitHub Actions)
+  for(const apiFn of AC_APIS){
+    try{
+      const url = apiFn(center);
+      const r = await fetch(url, {cache:'no-store'});
+      if(!r.ok) continue;
+      const data = await r.json();
+      const arr = data.ac || data.aircraft || (Array.isArray(data) ? data : null);
+      if(arr && arr.length >= 0){ acList = arr; break; }
+    } catch(e){ console.warn('aircraft live api error:', e); }
+  }
+
+  // Fallback: archivo horneado (puede tener hasta ~1h de retraso por limitaciones del cron de GitHub)
+  if(!acList){
+    try{
+      const r = await fetch('./data/aircraft.json', {cache:'no-store'});
+      if(r.ok){
+        const data = await r.json();
+        if(Array.isArray(data.ac)){
+          acList = data.ac;
+          console.info('aircraft: usando fallback aircraft.json (APIs en vivo no disponibles)');
+        }
+      }
+    } catch(e){ console.warn('aircraft fallback error:', e); }
+  }
+
+  if(!acList) return;
 
   G.aircraft.clearLayers(); FEATS.aircraft=[];
   let n=0;
-  data.ac.forEach(a=>{
+  acList.forEach(a=>{
     if(a.lat==null||a.lon==null) return;
     const cat = acCategory(a.flight);
     if(!AC_FILTERS[cat]) return;
-    if(a.on_ground && cat!=='other') return;   // mostrar en tierra solo para "otros" (helicópteros, etc.)
+    if(a.on_ground && cat!=='other') return;
     const color = acColor(cat);
-    const m = L.marker([a.lat, a.lon],{icon:aircraftIcon(a.track, color)})
+    const mk = L.marker([a.lat, a.lon],{icon:aircraftIcon(a.track, color)})
       .bindPopup(aircraftPopup(a), {maxWidth:260});
-    m.addTo(G.aircraft);
-    FEATS.aircraft.push({lat:a.lat, lon:a.lon, marker:m, ac:a, cat});
+    mk.addTo(G.aircraft);
+    FEATS.aircraft.push({lat:a.lat, lon:a.lon, marker:mk, ac:a, cat});
     n++;
   });
   const el=document.getElementById('cnt-aircraft');
-  if(el) el.textContent = age!=null ? `${n} (~${age}m)` : String(n);
+  if(el) el.textContent = String(n);
 }
 
 function buildAircraftSubfilters(){
