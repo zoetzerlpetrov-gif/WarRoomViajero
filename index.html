@@ -1391,6 +1391,39 @@ const AC_APIS = [
   c => `https://api.adsb.lol/v2/lat/${c.lat.toFixed(4)}/lon/${c.lng.toFixed(4)}/dist/250`,
 ];
 
+// Diccionario ICAO 3 letras → nombre de aerolínea
+const AIRLINE_NAMES = {
+  // México
+  AMX:'Aeroméxico',       VIV:'VivaAerobus',      VOI:'Volaris',
+  MXA:'Aeroméxico Connect', CJT:'Cargojet',        TAO:'Trans Aérea',
+  ABQ:'Aeromar',          AEA:'AeroMar',           MAS:'Magnicharters',
+  AWE:'America West',     SNT:'Aerosun',
+  // EE.UU.
+  UAL:'United Airlines',  AAL:'American Airlines', DAL:'Delta Air Lines',
+  SWA:'Southwest Airlines', JBU:'JetBlue',         ASA:'Alaska Airlines',
+  FFT:'Frontier Airlines', NKS:'Spirit Airlines',  SCX:'Sun Country Airlines',
+  HAL:'Hawaiian Airlines', ENY:'Envoy Air',        SKW:'SkyWest Airlines',
+  RPA:'Republic Airways',  QXE:'Horizon Air',      MTN:'Global Air',
+  // Canadá
+  ACA:'Air Canada',        WJA:'WestJet',           TRS:'Transat',
+  // Europa frecuente desde MX
+  BAW:'British Airways',  DLH:'Lufthansa',         IBE:'Iberia',
+  KLM:'KLM',              AFR:'Air France',         VLG:'Vueling',
+  EZY:'easyJet',          TVS:'Transavia',          AEE:'Aegean Airlines',
+  AUA:'Austrian Airlines', SAS:'Scandinavian Airlines',
+  // Medio Oriente / Asia
+  UAE:'Emirates',         QTR:'Qatar Airways',      ETH:'Ethiopian Airlines',
+  THY:'Turkish Airlines', SVA:'Saudi Arabian Airlines',
+  // Latinoamérica
+  AVA:'Avianca',          LAM:'LATAM Airlines',     GLO:'Gol',
+  TAM:'LATAM Brasil',     ARG:'Aerolíneas Argentinas', CBE:'Copa Airlines',
+  BOV:'BoA Bolivia',      PAL:'Philippine Airlines',
+  // Carga
+  FDX:'FedEx Express',    UPS:'UPS Airlines',       ABX:'ABX Air',
+  CLX:'Cargolux',         GTI:'Atlas Air',          POE:'Polar Air Cargo',
+  SQC:'Singapore Air Cargo',
+};
+
 function acCategory(callsign){
   const cs = (callsign||'').trim();
   if(AC_COMMERCIAL.test(cs)) return 'commercial';
@@ -1424,6 +1457,16 @@ function aircraftPopup(a){
   const reg  = a.r||'—';
   const typ  = a.t||'—';
   const icao = a.hex||'';
+
+  // Nombre de aerolínea desde código ICAO (primeras 3 letras del callsign)
+  const prefix3  = cs.length >= 3 ? cs.slice(0,3).toUpperCase() : '';
+  const airline  = AIRLINE_NAMES[prefix3] || '';
+
+  // Origen y destino — la API los devuelve cuando el vuelo tiene plan registrado
+  const origin = a.origin || a.orig_iata || a.dep_iata || a.depDes || '';
+  const dest   = a.destination || a.dest_iata || a.arr_iata || a.arrDes || '';
+  const route  = (origin && dest) ? `${origin} → ${dest}` : (origin || dest || '—');
+
   // Altitud en pies (alt_baro) → convertir a metros
   const altFt = a.alt_baro!=null && a.alt_baro!=='ground' ? Math.round(a.alt_baro) : null;
   const alt  = altFt!=null ? altFt+'ft ('+Math.round(altFt/3.281)+'m)' : (a.on_ground?'En tierra':'—');
@@ -1436,7 +1479,9 @@ function aircraftPopup(a){
   const cat  = acCategory(a.flight);
   const fr24 = `https://www.flightradar24.com/${cs.replace(/\s/g,'')}`;
   return `<b>✈ ${esc(cs)}</b> <span style="opacity:.6;font-size:10px">${esc(icao)}</span><br>
+    ${airline ? `<span style="color:#60d0ff;font-weight:700;font-size:11px">🏢 ${esc(airline)}</span><br>` : ''}
     ${grnd}<br>
+    Ruta: <b>${esc(route)}</b><br>
     Registro: ${esc(reg)} · Tipo: ${esc(typ)}<br>
     Altitud: ${esc(alt)}<br>
     Velocidad: ${esc(spd)}<br>
