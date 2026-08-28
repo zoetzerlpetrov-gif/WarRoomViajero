@@ -405,9 +405,15 @@ const G = {
   volcano: L.layerGroup().addTo(map),
   mass:    L.layerGroup().addTo(map),   // deslizamientos · avalanchas · inundaciones repentinas
   aurora:  L.layerGroup().addTo(map),   // oval de visibilidad de auroras boreales/australes (Kp)
+  aircraft:L.layerGroup(),              // aeronaves en vivo — OpenSky Network (desactivado por default)
 };
 const counts = {}; let threats = []; let seismicWatch = []; let cdmxAir = null; let advisories = {}; let seenEventKeys=null; let audioCtx=null; let soundMuted=(localStorage.getItem('wr_muted')==='1'); let unitsImperial=(localStorage.getItem('wr_units')==='imperial');
-const FEATS = {eq:[], storms:[], gdacs:[], fires:[], forecast:[], air:[], security:[], volcano:[], secmap:[], severe:[], severemap:[], mass:[], aurora:[]};
+const FEATS = {eq:[], storms:[], gdacs:[], fires:[], forecast:[], air:[], security:[], volcano:[], secmap:[], severe:[], severemap:[], mass:[], aurora:[], aircraft:[]};
+// Filtros de aeronaves (qué categorías mostrar)
+const AC_FILTERS = {commercial:true, nreg:true, other:true};
+const AC_COMMERCIAL = /^[A-Z]{3}\d{1,4}\s*$/;
+const AC_N_REG      = /^N[0-9A-Z]{1,6}\s*$/;
+let aircraftTimer = null;
       const RADIUS_KM = 180;
 let ZONE_FILTER = null, zoneCircle = null;
   let COUNTRY_FILTER = null; let CATEGORY_FILTER = null;
@@ -429,6 +435,7 @@ const LAYERS = [
   {id:'mass',    name:'Deslaves · Avalanchas · Aludes', sub:'GDELT · señales 24 h', color:'#c8a97e', group:G.mass},
   {id:'volcano', name:'Volcanes',            sub:'CENAPRED / GVP',   color:C.violet, group:G.volcano},
   {id:'aurora',  name:'Auroras boreales / australes', sub:'NOAA SWPC · Kp en vivo', color:'#44ff99', group:G.aurora},
+  {id:'aircraft',name:'Aeronaves en vivo',           sub:'OpenSky Network · 30 s', color:'#60d0ff', live:true, group:G.aircraft, off:true},
 ];
 
 function buildLayerUI(){
@@ -449,22 +456,28 @@ function buildLayerUI(){
     if(l.off) map.removeLayer(l.group);
   });
   document.getElementById('legend').innerHTML =
-    `<div class="row"><i style="background:${C.green}"></i>Tranquilo / leve</div>
+    `<div style="font-size:9px;font-weight:700;letter-spacing:.08em;color:var(--green);margin-bottom:3px">RIESGO GENERAL</div>
+     <div class="row"><i style="background:${C.green}"></i>Tranquilo / leve</div>
      <div class="row"><i style="background:${C.amber}"></i>Vigilancia</div>
      <div class="row"><i style="background:${C.orange}"></i>Riesgo</div>
      <div class="row"><i style="background:${C.red}"></i>Severo / crítico</div>
-     <div class="row"><i style="background:${C.cyan}"></i>Agua / tsunami / ciclón</div>
-     <div class="row"><i style="background:#44ff88"></i>🌌 Aurora boreal / tormenta geomagnética</div>
-     <div style="margin-top:5px;font-size:9px;color:var(--muted)">SISMOS 🫨 — escala de colores:</div>
+     <div class="row"><i style="background:${C.cyan}"></i>Inundación / tsunami / ciclón</div>
+     <div class="row"><i style="background:#b56cff"></i>Volcán / amenaza geológica</div>
+     <div class="row"><i style="background:#44ff88;border-radius:0"></i>🌌 Auroras — zona de visibilidad (Kp)</div>
+     <div style="margin-top:7px;font-size:9px;font-weight:700;letter-spacing:.08em;color:var(--green)">SISMOS 🫨</div>
      <div class="row"><i style="background:#44aaff"></i>Micro &lt;M2.5</div>
      <div class="row"><i style="background:#46e0a0"></i>Menor M2.5–4</div>
      <div class="row"><i style="background:${C.amber}"></i>Leve M4–5</div>
      <div class="row"><i style="background:${C.orange}"></i>Moderado M5–6</div>
      <div class="row"><i style="background:${C.red}"></i>Fuerte M6–7</div>
      <div class="row"><i style="background:#b56cff"></i>Violento M7+</div>
-     <div style="margin-top:5px;font-size:9px;color:var(--muted)">CALIDAD DE AIRE — ícono por nivel:</div>
+     <div style="margin-top:7px;font-size:9px;font-weight:700;letter-spacing:.08em;color:var(--green)">CALIDAD DEL AIRE 😷</div>
      <div class="row">😊 Buena &nbsp;😐 Aceptable &nbsp;😷 Dañina</div>
-     <div class="row">🤧 Mala &nbsp;🤢 Muy mala &nbsp;☠️ Peligrosa</div>`;
+     <div class="row">🤧 Mala &nbsp;🤢 Muy mala &nbsp;☠️ Peligrosa</div>
+     <div style="margin-top:7px;font-size:9px;font-weight:700;letter-spacing:.08em;color:var(--green)">AERONAVES ✈</div>
+     <div class="row"><i style="background:#60d0ff;border-radius:0;transform:rotate(45deg)"></i>Aerolínea comercial</div>
+     <div class="row"><i style="background:#46e0a0;border-radius:0;transform:rotate(45deg)"></i>Aviación general (N-XXXXX)</div>
+     <div class="row"><i style="background:${C.amber};border-radius:0;transform:rotate(45deg)"></i>Otros (militar / heli / globo…)</div>`;
 }
 
 // ============================ HELPERS ============================
@@ -1370,6 +1383,124 @@ function addMxStaticVolcanoes(){
   }
 }
 
+// ============================ AERONAVES EN VIVO (OpenSky Network) ============================
+function acCategory(callsign, category){
+  const cs = (callsign||'').trim();
+  if(AC_COMMERCIAL.test(cs)) return 'commercial';
+  if(AC_N_REG.test(cs))      return 'nreg';
+  return 'other';
+}
+function acColor(cat){
+  if(cat==='commercial') return '#60d0ff';
+  if(cat==='nreg')       return '#46e0a0';
+  return '#ffb000';
+}
+function acLabel(cat){
+  if(cat==='commercial') return 'Aerolínea comercial';
+  if(cat==='nreg')       return 'Aviación general (N-reg)';
+  return 'Otro (militar / heli / globo…)';
+}
+function aircraftIcon(heading, color){
+  const h = (heading||0);
+  // Triángulo apuntando hacia arriba, rotado por el heading
+  return L.divIcon({
+    className:'',
+    html:`<div style="width:18px;height:18px;display:flex;align-items:center;justify-content:center;">
+      <svg viewBox="0 0 18 18" width="18" height="18" style="transform:rotate(${h}deg);overflow:visible">
+        <polygon points="9,1 15,16 9,12 3,16" fill="${color}" stroke="#000" stroke-width="0.8" opacity="0.92"/>
+      </svg></div>`,
+    iconSize:[18,18], iconAnchor:[9,9]
+  });
+}
+function aircraftPopup(s){
+  // s = OpenSky state vector array
+  const cs    = (s[1]||'').trim()||'—';
+  const ctry  = s[2]||'—';
+  const alt   = s[7]!=null ? Math.round(s[7])+'m ('+(Math.round(s[7]*3.28084))+'ft)' : (s[13]!=null?Math.round(s[13])+'m':' —');
+  const spd   = s[9]!=null ? Math.round(s[9]*1.94384)+' kt ('+Math.round(s[9]*3.6)+' km/h)' : '—';
+  const hdg   = s[10]!=null ? Math.round(s[10])+'°' : '—';
+  const vr    = s[11]!=null ? (s[11]>=0?'+':'')+s[11].toFixed(1)+' m/s' : '—';
+  const grnd  = s[8] ? '🟡 En tierra' : '🔵 En vuelo';
+  const icao  = s[0]||'';
+  const cat   = acCategory(s[1], s[17]);
+  const fr24  = `https://www.flightradar24.com/${cs.replace(/\s/g,'')}`;
+  return `<b>✈ ${esc(cs)}</b> <span style="opacity:.6;font-size:10px">${esc(icao)}</span><br>
+    ${grnd}<br>
+    País: ${esc(ctry)}<br>
+    Altitud: ${esc(alt)}<br>
+    Velocidad: ${esc(spd)}<br>
+    Rumbo: ${esc(hdg)}<br>
+    Vel. vertical: ${esc(vr)}<br>
+    Tipo: ${acLabel(cat)}<br>
+    <a href="${fr24}" target="_blank" style="color:#60d0ff;font-size:10px">Ver en Flightradar24 ↗</a>`;
+}
+
+async function loadAircraft(){
+  if(!map.hasLayer(G.aircraft)) return;
+  try{
+    const b = map.getBounds();
+    const lamin = b.getSouth().toFixed(4);
+    const lomin = b.getWest().toFixed(4);
+    const lamax = b.getNorth().toFixed(4);
+    const lomax = b.getEast().toFixed(4);
+    // OpenSky API gratuito, sin API key, CORS habilitado para browsers
+    const url = `https://opensky-network.org/api/states/all?lamin=${lamin}&lomin=${lomin}&lamax=${lamax}&lomax=${lomax}`;
+    const r = await fetch(url, {cache:'no-store'});
+    if(!r.ok) return;
+    const data = await r.json();
+    if(!data||!data.states) return;
+
+    G.aircraft.clearLayers(); FEATS.aircraft=[];
+    let n=0;
+    data.states.forEach(s=>{
+      const lat=s[6], lon=s[5];
+      if(lat==null||lon==null) return;
+      const cat = acCategory(s[1], s[17]);
+      if(!AC_FILTERS[cat]) return;           // filtro de categoría
+      if(s[8] && cat!=='other') return;      // ocultar aeronaves en tierra salvo categoría "otros"
+      const color = acColor(cat);
+      const m = L.marker([lat,lon],{icon:aircraftIcon(s[10],color)})
+        .bindPopup(aircraftPopup(s), {maxWidth:260});
+      m.addTo(G.aircraft);
+      FEATS.aircraft.push({lat,lon,marker:m,state:s,cat});
+      n++;
+    });
+    const el=document.getElementById('cnt-aircraft');
+    if(el) el.textContent=n;
+  } catch(e){ /* silencioso — OpenSky puede dar 503 en picos de tráfico */ }
+}
+
+function buildAircraftSubfilters(){
+  // Inserta checkboxes de filtro debajo del ítem de aeronaves en el panel de capas
+  const existing = document.getElementById('ac-subfilters');
+  if(existing) return; // ya creado
+  const layerItems = document.querySelectorAll('#layers .layer');
+  let acItem = null;
+  layerItems.forEach(el=>{
+    if(el.querySelector('.nm b')&&el.querySelector('.nm b').textContent.includes('Aeronaves')) acItem=el;
+  });
+  if(!acItem) return;
+  const sub = document.createElement('div');
+  sub.id='ac-subfilters';
+  sub.style.cssText='padding:4px 10px 4px 28px;display:flex;flex-direction:column;gap:3px;font-size:10px;color:var(--muted)';
+  const cats=[{key:'commercial',label:'✈ Aerolíneas comerciales',color:'#60d0ff'},
+              {key:'nreg',      label:'🛩 Aviación general (N-XXXXX)',color:'#46e0a0'},
+              {key:'other',     label:'🚁 Resto (militar / heli / globo)',color:'#ffb000'}];
+  cats.forEach(c=>{
+    const row=document.createElement('label');
+    row.style.cssText='display:flex;align-items:center;gap:5px;cursor:pointer;user-select:none';
+    const chk=document.createElement('input');
+    chk.type='checkbox'; chk.checked=AC_FILTERS[c.key];
+    chk.style.cssText='accent-color:'+c.color+';cursor:pointer';
+    chk.onchange=()=>{ AC_FILTERS[c.key]=chk.checked; loadAircraft(); };
+    const lbl=document.createElement('span');
+    lbl.textContent=c.label; lbl.style.color=c.color;
+    row.appendChild(chk); row.appendChild(lbl);
+    sub.appendChild(row);
+  });
+  acItem.insertAdjacentElement('afterend', sub);
+}
+
 // ============================ THREAT BOARD ============================
 function renderThreats(){
   threats.sort(function(a,b){ const fa=eventFirstSeen[threatKey(a)]||0, fb=eventFirstSeen[threatKey(b)]||0; return (fb-fa) || (b.score-a.score); });
@@ -1473,13 +1604,37 @@ if(soundBtn) soundBtn.onclick=function(){
 document.addEventListener('click', function unlockAudioOnce(){ ensureAudioCtx(); document.removeEventListener('click', unlockAudioOnce); }, {once:true});
 const unitsBtn=document.getElementById('tog-units'); function updateUnitsBtn(){ if(unitsBtn) unitsBtn.textContent = unitsImperial ? 'IMP' : 'SI'; } updateUnitsBtn(); if(unitsBtn) unitsBtn.onclick=function(){ localStorage.setItem('wr_units', unitsImperial ? 'si' : 'imperial'); location.reload(); }; if(window.matchMedia('(max-width:820px)').matches){ document.getElementById('pleft').classList.add('hide'); }
 
-// re-cargar alertas NWS si el usuario enciende la capa
+// re-cargar alertas NWS y activar aeronaves cuando se encienden las capas
 const origAdd = map.addLayer.bind(map);
-map.addLayer = function(layer){ const r=origAdd(layer); if(layer===G.alerts) loadAlerts().then(renderThreats); return r; };
+map.addLayer = function(layer){
+  const r=origAdd(layer);
+  if(layer===G.alerts) loadAlerts().then(renderThreats);
+  if(layer===G.aircraft){
+    buildAircraftSubfilters();
+    loadAircraft();
+    if(aircraftTimer) clearInterval(aircraftTimer);
+    aircraftTimer = setInterval(loadAircraft, 30000);
+  }
+  return r;
+};
+// Detener timer de aeronaves si el usuario apaga la capa
+const origRemove = map.removeLayer.bind(map);
+map.removeLayer = function(layer){
+  const r=origRemove(layer);
+  if(layer===G.aircraft){
+    if(aircraftTimer){ clearInterval(aircraftTimer); aircraftTimer=null; }
+    G.aircraft.clearLayers(); FEATS.aircraft=[];
+    const el=document.getElementById('cnt-aircraft'); if(el) el.textContent='—';
+  }
+  return r;
+};
 
 // consola de zona
 document.getElementById('zgo').onclick=queryZone;
 document.getElementById('zq').addEventListener('keydown',e=>{ if(e.key==='Enter') queryZone(); });
+
+// Re-cargar aeronaves al mover/hacer zoom (nuevo viewport = nuevas aeronaves)
+map.on('moveend', ()=>{ if(map.hasLayer(G.aircraft)) loadAircraft(); });
 
 init();
 </script>
