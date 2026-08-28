@@ -1,64 +1,64 @@
 {
-  "generated": "2026-08-27T21:35:31Z",
+  "generated": "2026-08-28T08:33:01Z",
   "sources": {
     "fires": {
       "count": 1500,
-      "updated": "2026-08-27T21:35:34Z",
-      "seconds": 2.7
+      "updated": "2026-08-28T08:33:02Z",
+      "seconds": 1.2
     },
     "storms": {
       "count": 4,
-      "updated": "2026-08-27T21:35:34Z",
+      "updated": "2026-08-28T08:33:02Z",
       "seconds": 0.2
     },
     "storm_tracks": {
-      "count": 131,
-      "updated": "2026-08-27T21:35:36Z",
-      "seconds": 2.4
+      "count": 129,
+      "updated": "2026-08-28T08:33:04Z",
+      "seconds": 2.1
     },
     "gdacs": {
       "count": 0,
-      "updated": "2026-08-27T21:35:37Z",
-      "seconds": 1.2
+      "updated": "2026-08-28T08:33:11Z",
+      "seconds": 7.5
     },
     "forecast": {
       "count": 533,
-      "updated": "2026-08-27T21:35:39Z",
+      "updated": "2026-08-28T08:33:13Z",
       "seconds": 1.8
     },
     "airquality": {
       "count": 533,
-      "updated": "2026-08-27T21:35:41Z",
-      "seconds": 1.8
+      "updated": "2026-08-28T08:33:15Z",
+      "seconds": 1.9
     },
     "space": {
       "count": 0,
-      "updated": "2026-08-27T21:35:41Z",
+      "updated": "2026-08-28T08:33:16Z",
       "seconds": 0.3
     },
     "security": {
       "count": 0,
-      "updated": "2026-08-27T21:36:38Z",
-      "seconds": 56.4
+      "updated": "2026-08-28T08:34:37Z",
+      "seconds": 81.8
     },
     "severe_weather": {
-      "count": 22,
-      "updated": "2026-08-27T21:38:03Z",
-      "seconds": 85.0
+      "count": 18,
+      "updated": "2026-08-28T08:36:11Z",
+      "seconds": 93.5
     },
     "mass_movements": {
       "count": 0,
-      "updated": "2026-08-27T21:43:04Z",
-      "seconds": 301.6
+      "updated": "2026-08-28T08:40:50Z",
+      "seconds": 279.2
     },
     "advisories": {
       "count": 0,
-      "updated": "2026-08-27T21:43:05Z",
-      "seconds": 0.6
+      "updated": "2026-08-28T08:40:51Z",
+      "seconds": 0.7
     },
     "volcanoes": {
       "count": 31,
-      "updated": "2026-08-27T21:43:05Z",
+      "updated": "2026-08-28T08:40:51Z",
       "seconds": 0.3
     }
   }
