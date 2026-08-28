@@ -1448,19 +1448,20 @@ function aircraftPopup(a){
 
 async function loadAircraft(){
   if(!map.hasLayer(G.aircraft)) return;
-  const center = map.getCenter();
+  // Lee el archivo estático horneado por GitHub Actions (mismo origen, sin CORS).
+  // El workflow aircraft.yml lo actualiza cada 10 minutos.
   let data = null;
-  // Intentar APIs en orden hasta que una responda
-  for(const mkUrl of AC_APIS){
-    try{
-      const url = mkUrl(center);
-      const r = await fetch(url, {cache:'no-store'});
-      if(!r.ok) continue;
-      const d = await r.json();
-      if(d && Array.isArray(d.ac)){ data = d; break; }
-    } catch(e){ /* próxima API */ }
-  }
-  if(!data || !data.ac) return;
+  try{
+    const r = await fetch('./data/aircraft.json', {cache:'no-store'});
+    if(!r.ok){ console.warn('aircraft.json no disponible:', r.status); return; }
+    data = await r.json();
+  } catch(e){ console.warn('aircraft fetch error:', e); return; }
+  if(!data || !Array.isArray(data.ac)) return;
+
+  // Calcular antigüedad del archivo para mostrar en el contador
+  const age = data.fetched_at
+    ? Math.round((Date.now() - new Date(data.fetched_at)) / 60000)
+    : null;
 
   G.aircraft.clearLayers(); FEATS.aircraft=[];
   let n=0;
@@ -1477,7 +1478,7 @@ async function loadAircraft(){
     n++;
   });
   const el=document.getElementById('cnt-aircraft');
-  if(el) el.textContent=n;
+  if(el) el.textContent = age!=null ? `${n} (~${age}m)` : String(n);
 }
 
 function buildAircraftSubfilters(){
