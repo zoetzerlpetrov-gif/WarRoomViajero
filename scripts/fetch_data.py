@@ -1162,34 +1162,78 @@ def fetch_mass_movements():
 # Orquestacion
 # -------------------------------------------------------------------------
 
+def _opensky_states_to_ac(states):
+    """Convierte state vectors de OpenSky al formato readsb que espera el mapa."""
+    result = []
+    for s in (states or []):
+        if s[5] is None or s[6] is None:   # lon, lat
+            continue
+        alt_m  = s[7]   # baro_altitude en metros
+        spd_ms = s[9]   # velocidad en m/s
+        vr_ms  = s[11]  # vertical rate en m/s
+        result.append({
+            "hex":      s[0] or "",
+            "flight":   (s[1] or "").strip(),
+            "r":        "",                                          # OpenSky no da matrícula
+            "t":        "",                                          # OpenSky no da tipo
+            "lat":      s[6],
+            "lon":      s[5],
+            "alt_baro": round(alt_m * 3.281) if alt_m is not None else None,   # m → ft
+            "gs":       round(spd_ms * 1.944) if spd_ms is not None else None, # m/s → kt
+            "track":    s[10],
+            "baro_rate": round(vr_ms * 196.85) if vr_ms is not None else None, # m/s → ft/min
+            "on_ground": bool(s[8]),
+        })
+    return result
+
+
 def fetch_aircraft():
     """
-    Obtiene aeronaves en vivo desde airplanes.live (sin restricciones CORS en el servidor)
-    y guarda data/aircraft.json.  El mapa lo lee como archivo estático (mismo origen).
-    Cubre México + frontera con EE.UU. y Centroamérica con puntos solapados de 250 nm.
+    Obtiene aeronaves en vivo y guarda data/aircraft.json.
+    El mapa lo lee como archivo estático (mismo origen GitHub Pages, sin CORS).
+
+    Estrategia de APIs (en orden de preferencia):
+      1. adsb.fi  — red comunitaria ADS-B, formato readsb, IPs de cloud permitidas.
+      2. OpenSky Network — bounding box México, formato diferente (se convierte).
+    Ambas funcionan desde GitHub Actions; airplanes.live bloquea IPs de Azure/GCP (403).
     """
-    points = [
-        (23.6, -102.5, 250),   # Centro de México
-        (28.5, -106.0, 250),   # Norte México / SW Estados Unidos
-        (17.0, -92.0,  250),   # Sur México / Centroamérica
-        (32.0, -117.0, 200),   # Baja California / San Diego
-        (20.5, -87.0,  200),   # Yucatán / Caribe
-        (19.4, -99.1,  150),   # CDMX y alrededores (detalle extra)
+    aircraft = {}   # dedup por hex ICAO
+
+    # ── 1. adsb.fi (formato idéntico a airplanes.live) ───────────────────────
+    points_adsbfi = [
+        (23.6, -102.5, 500),   # Centro — radio grande para cubrir todo México
+        (28.5, -106.0, 400),   # Norte México / SW EE.UU.
+        (17.0, -92.0,  400),   # Sur México / Centroamérica
     ]
-    aircraft = {}   # dedup por hex (ICAO 24 bits)
-    errors = []
-    for lat, lon, dist in points:
-        url = f"https://api.airplanes.live/v2/point/{lat}/{lon}/{dist}"
+    adsbfi_ok = False
+    for lat, lon, dist in points_adsbfi:
+        url = f"https://api.adsb.fi/v1/lat/{lat}/lon/{lon}/dist/{dist}"
         try:
-            raw = http_get(url)
+            raw  = http_get(url)
             data = json.loads(raw)
             for a in data.get("ac", []):
                 if a.get("lat") and a.get("lon"):
                     hex_id = a.get("hex", "")
                     if hex_id not in aircraft:
                         aircraft[hex_id] = a
+            adsbfi_ok = True
         except Exception as e:
-            errors.append(str(e))
+            print(f"  adsb.fi ({lat},{lon}): {e}")
+
+    # ── 2. OpenSky Network (fallback si adsb.fi falla o da muy pocos) ────────
+    if not adsbfi_ok or len(aircraft) < 5:
+        # Bounding box: México + parte de EE.UU. y Centroamérica
+        bbox_url = ("https://opensky-network.org/api/states/all"
+                    "?lamin=14.0&lomin=-120.0&lamax=33.5&lomax=-85.0")
+        try:
+            raw  = http_get(bbox_url)
+            data = json.loads(raw)
+            for a in _opensky_states_to_ac(data.get("states", [])):
+                if a["hex"] not in aircraft:
+                    aircraft[a["hex"]] = a
+            print(f"  opensky: {len(aircraft)} aeronaves (incluyendo adsb.fi)")
+        except Exception as e:
+            print(f"  opensky: {e}")
 
     out = {
         "ac": list(aircraft.values()),
@@ -1199,10 +1243,7 @@ def fetch_aircraft():
     path = os.path.join(DATA_DIR, "aircraft.json")
     with open(path, "w", encoding="utf-8") as f:
         json.dump(out, f, separators=(",", ":"))
-    if errors:
-        print(f"aircraft: {len(aircraft)} aeronaves | {len(errors)} errores: {errors[:3]}")
-    else:
-        print(f"aircraft: {len(aircraft)} aeronaves guardadas")
+    print(f"aircraft: {len(aircraft)} aeronaves guardadas")
     return len(aircraft)
 
 
