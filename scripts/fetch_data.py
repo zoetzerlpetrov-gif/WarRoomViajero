@@ -992,8 +992,15 @@ def fetch_security_feed():
         print(f"  [feed] gdelt: {len(doc.get('articles', []))}")
     except Exception as e:
         print(f"  [feed] gdelt fallo: {e}")
-    with open(os.path.join(DATA_DIR, "security_feed.json"), "w", encoding="utf-8") as f:
-        json.dump({"generated": now_iso(), "items": [it for it in items if _is_recent(it.get("date"))][:40]}, f, ensure_ascii=False)
+    feed_path = os.path.join(DATA_DIR, "security_feed.json")
+    filtered_items = [it for it in items if _is_recent(it.get("date"))][:40]
+    if not filtered_items and os.path.exists(feed_path):
+        # Ambas APIs fallaron o devolvieron 0 ítems: preservar el archivo anterior
+        # para que el dashboard siga mostrando las últimas noticias conocidas.
+        print("  [feed] 0 items nuevos — preservando security_feed.json existente")
+    else:
+        with open(feed_path, "w", encoding="utf-8") as f:
+            json.dump({"generated": now_iso(), "items": filtered_items}, f, ensure_ascii=False)
 
     # Mapa aproximado de incidentes (solo notas de Mexico; ubicacion a nivel
     # estado detectada por texto del titular; NO es la ubicacion exacta del hecho).
@@ -1015,6 +1022,183 @@ def fetch_security_feed():
     except Exception as e:
         print(f"  [feed] mapa seguridad fallo: {e}")
     write_geojson("security_map.geojson", map_feats, {"note": "Ubicacion aproximada a nivel estado, detectada por texto del titular. No es la ubicacion exacta del incidente."}, preserve_if_empty=True)
+
+# -------------------------------------------------------------------------
+# 10b) INCIDENTES DE AVIACIÓN — accidentes, despistes, aterrizajes de emergencia,
+#      fallos mecánicos, derrames de combustible, colisiones en tierra.
+#
+#  Fuentes:
+#   1. Aviation Herald RSS  — avherald.com/rss.php  (global, en inglés, muy fiable)
+#   2. Google News RSS MX   — términos en español (accidente avion, despiste, etc.)
+#   3. Google News global   — términos en inglés   (aircraft accident, runway excursion)
+#
+#  AVISO: La ubicación es estimada a partir del texto (nombre de aeropuerto o país
+#         mencionado en el titular). NO es la posición GPS del avión implicado.
+#         Usar solo como referencia de cobertura noticiosa.
+# -------------------------------------------------------------------------
+
+# Coordenadas de aeropuertos/ciudades más frecuentes en titulares de aviación
+AVHERALD_AIRPORTS = {
+    # México
+    "mexico city": (19.436, -99.072), "cdmx": (19.436, -99.072),
+    "guadalajara": (20.521, -103.311), "monterrey": (25.778, -100.107),
+    "cancun": (21.041, -86.875), "merida": (20.967, -89.657),
+    "tijuana": (32.541, -116.970), "oaxaca": (17.062, -96.726),
+    "veracruz": (19.148, -96.188), "la paz": (24.072, -110.362),
+    # América del Norte
+    "miami": (25.796, -80.287), "dallas": (32.897, -97.038),
+    "houston": (29.990, -95.337), "los angeles": (33.943, -118.408),
+    "new york": (40.641, -73.778), "chicago": (41.974, -87.908),
+    "toronto": (43.677, -79.631), "bogota": (4.702, -74.147),
+    "lima": (12.022, -77.114), "santiago": (-33.393, -70.786),
+    "sao paulo": (-23.435, -46.473), "buenos aires": (-34.822, -58.535),
+    # Europa
+    "london": (51.477, -0.461), "paris": (49.009, 2.548),
+    "madrid": (40.472, -3.561), "amsterdam": (52.310, 4.769),
+    "frankfurt": (50.026, 8.543), "rome": (41.800, 12.239),
+    # Asia / Oriente Medio
+    "dubai": (25.253, 55.365), "istanbul": (41.275, 28.752),
+    "beijing": (40.080, 116.585), "bangkok": (13.681, 100.747),
+    "tokyo": (35.549, 139.779), "delhi": (28.556, 77.100),
+    # África
+    "cairo": (30.122, 31.406), "nairobi": (-1.319, 36.927),
+}
+
+AV_INCIDENT_KEYWORDS_ES = [
+    "accidente avion", "accidente aereo", "avion accidente",
+    "despiste avion", "despiste aeronave", "despiste pista",
+    "salida de pista", "excursion de pista",
+    "aterrizaje emergencia", "aterrizaje forzoso",
+    "emergencia aerea", "emergencia avion",
+    "incidente aereo", "incidente avion",
+    "fallo motor avion", "incendio avion", "avion incendio",
+    "colision avion", "choque avion",
+]
+
+AV_INCIDENT_KEYWORDS_EN = [
+    "aircraft accident", "plane crash", "runway excursion",
+    "runway overrun", "runway incursion", "aircraft incident",
+    "emergency landing", "engine failure aircraft",
+    "aircraft fire", "aviation accident", "air crash",
+    "belly landing", "gear collapse", "bird strike",
+]
+
+
+def _av_geolocate(title_lower):
+    """Devuelve (lat, lon) del primer aeropuerto/ciudad reconocida en el titular."""
+    for name, coords in AVHERALD_AIRPORTS.items():
+        if name in title_lower:
+            return coords
+    return None
+
+
+def fetch_aviation_incidents():
+    """
+    Obtiene incidentes de aviación (accidentes, despistes, emergencias) de:
+      1. Aviation Herald RSS (avherald.com)
+      2. Google News RSS en español
+      3. Google News RSS en inglés
+    Escribe data/aviation_incidents.json (lista de incidentes últimas 72 h).
+    """
+    incidents = []
+
+    # 1. Aviation Herald RSS ─────────────────────────────────────────────────
+    try:
+        rss_raw = http_get("https://avherald.com/rss.php")
+        root = ET.fromstring(rss_raw)
+        for it in root.iter("item"):
+            title = it.findtext("title") or ""
+            url   = it.findtext("link") or ""
+            date  = it.findtext("pubDate") or ""
+            desc  = it.findtext("description") or ""
+            # Filtrar solo últimas 72 h
+            if not _is_recent(date, max_days=3):
+                continue
+            # Geocodificar
+            coords = _av_geolocate((title + " " + desc).lower())
+            incidents.append({
+                "title": title, "url": url, "date": date,
+                "source": "Aviation Herald",
+                "lat": coords[0] if coords else None,
+                "lon": coords[1] if coords else None,
+            })
+        print(f"  [aviacion] avherald: {len(incidents)} incidentes")
+    except Exception as e:
+        print(f"  [aviacion] avherald fallo: {e}")
+
+    # 2. Google News RSS en español ─────────────────────────────────────────
+    try:
+        kw_es = " OR ".join(f'"{k}"' for k in AV_INCIDENT_KEYWORDS_ES[:8])
+        q_es  = urllib.parse.quote(kw_es)
+        rss_es = http_get(f"https://news.google.com/rss/search?q={q_es}&hl=es-419&gl=MX&ceid=MX:es")
+        root_es = ET.fromstring(rss_es)
+        count_before = len(incidents)
+        for it in root_es.iter("item"):
+            date = it.findtext("pubDate") or ""
+            if not _is_recent(date, max_days=3):
+                continue
+            title = it.findtext("title") or ""
+            coords = _av_geolocate(title.lower())
+            src_el = it.find("source")
+            incidents.append({
+                "title": title,
+                "url":   it.findtext("link") or "",
+                "date":  date,
+                "source": (src_el.text if src_el is not None else "") or "Google News ES",
+                "lat": coords[0] if coords else None,
+                "lon": coords[1] if coords else None,
+            })
+        print(f"  [aviacion] google news ES: {len(incidents) - count_before} titulares")
+    except Exception as e:
+        print(f"  [aviacion] google news ES fallo: {e}")
+
+    # 3. Google News RSS en inglés ──────────────────────────────────────────
+    try:
+        kw_en = " OR ".join(f'"{k}"' for k in AV_INCIDENT_KEYWORDS_EN[:6])
+        q_en  = urllib.parse.quote(kw_en)
+        rss_en = http_get(f"https://news.google.com/rss/search?q={q_en}&hl=en-US&gl=US&ceid=US:en")
+        root_en = ET.fromstring(rss_en)
+        count_before = len(incidents)
+        for it in root_en.iter("item"):
+            date = it.findtext("pubDate") or ""
+            if not _is_recent(date, max_days=3):
+                continue
+            title = it.findtext("title") or ""
+            coords = _av_geolocate(title.lower())
+            src_el = it.find("source")
+            incidents.append({
+                "title": title,
+                "url":   it.findtext("link") or "",
+                "date":  date,
+                "source": (src_el.text if src_el is not None else "") or "Google News EN",
+                "lat": coords[0] if coords else None,
+                "lon": coords[1] if coords else None,
+            })
+        print(f"  [aviacion] google news EN: {len(incidents) - count_before} titulares")
+    except Exception as e:
+        print(f"  [aviacion] google news EN fallo: {e}")
+
+    # Deduplicar por URL y limitar a 60 ítems más recientes
+    seen_urls = set()
+    deduped = []
+    for inc in incidents:
+        u = inc.get("url", "")
+        if u and u in seen_urls:
+            continue
+        seen_urls.add(u)
+        deduped.append(inc)
+    deduped = deduped[:60]
+
+    out_path = os.path.join(DATA_DIR, "aviation_incidents.json")
+    if not deduped and os.path.exists(out_path):
+        print("  [aviacion] 0 incidentes nuevos — preservando archivo existente")
+    else:
+        with open(out_path, "w", encoding="utf-8") as f:
+            json.dump({"generated": now_iso(), "items": deduped}, f, ensure_ascii=False)
+    print(f"  [aviacion] total: {len(deduped)} incidentes escritos")
+    return len(deduped)
+
+
 
 # -------------------------------------------------------------------------
 # 10) CLIMA SEVERO (GRANIZO / TORNADO) - senales de noticias (GDELT + Google News)
@@ -1261,6 +1445,7 @@ def main():
         ("airquality", fetch_airquality),
         ("space", fetch_space),
         ("security", fetch_security),
+        ("aviation_incidents", fetch_aviation_incidents),
         ("severe_weather", fetch_severe_weather),
         ("mass_movements", fetch_mass_movements),
         ("advisories", fetch_advisories),
