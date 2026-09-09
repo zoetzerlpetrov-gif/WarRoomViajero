@@ -858,7 +858,7 @@ def fetch_security():
     fetch_security_feed()
     return len(feats)
 
-h
+
 MX_STATE_CENTROIDS = {
     "Aguascalientes": (21.8853, -102.2916),
     "Baja California Sur": (26.0444, -111.6661),
