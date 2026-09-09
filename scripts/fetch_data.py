@@ -1114,7 +1114,7 @@ def fetch_aviation_incidents():
             date  = it.findtext("pubDate") or ""
             desc  = it.findtext("description") or ""
             # Filtrar solo últimas 72 h
-            if not _is_recent(date, max_days=3):
+            if not _is_recent(date, max_days=1):
                 continue
             # Geocodificar
             coords = _av_geolocate((title + " " + desc).lower())
