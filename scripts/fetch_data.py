@@ -26,7 +26,7 @@ import urllib.request
 import urllib.error
 import urllib.parse
 import xml.etree.ElementTree as ET
-import zipfile
+import zipfileh
 import re
 import hashlib
 import unicodedata
@@ -759,10 +759,23 @@ def fetch_space():
         if isinstance(kp, list) and len(kp) > 1:
             recent = [row for row in kp[1:] if row[1] not in ('', None)]
             if recent:
-                best = max(recent[-12:], key=lambda r: float(r[1]))
+                best = max(recent[-48:], key=lambda r: float(r[1]))
                 out["kp"] = {"value": float(best[1]), "time": best[0]}
     except Exception as e:
         print(f"  [espacial] kp fallo: {e}")
+    # Fallback: si Kp fallo pero G-scale > 0, derivar Kp minimo equivalente
+  if out["kp"] is None and out["G"]["scale"] > 0:
+    g = out["G"]["scale"]
+    kp_equiv = {1: 5.0, 2: 6.0, 3: 7.0, 4: 8.0, 5: 9.0}.get(g, 5.0)
+    out["kp"] = {"value": kp_equiv, "time": "derived_from_G", "derived": True}
+  # Fallback inverso: si Kp >= 5 pero G reporto 0, derivar G desde Kp
+    if out["kp"] is not None and out["G"]["scale"] == 0:
+      kv = out["kp"]["value"]
+      if kv >= 9:   out["G"] = {"scale": 5, "text": "Extreme"}
+      elif kv >= 8: out["G"] = {"scale": 4, "text": "Severe"}
+      elif kv >= 7: out["G"] = {"scale": 3, "text": "Strong"}
+      elif kv >= 6: out["G"] = {"scale": 2, "text": "Moderate"}
+      elif kv >= 5: out["G"] = {"scale": 1, "text": "Minor"}
 
     # Ultima llamarada de rayos X (clase C/M/X)
     try:
@@ -865,7 +878,7 @@ MX_STATE_CENTROIDS = {
     "Michoacan": (19.5665, -101.7068),
     "Morelos": (18.6813, -99.1013),
     "Nayarit": (21.7514, -104.8455),
-    "Nuevo Leon": (25.5922, -99.9962),
+    "Nuevo Leon": (25.5922, -99.9962),h
     "Oaxaca": (17.0732, -96.7266),
     "Puebla": (19.0414, -98.2063),
     "Queretaro": (20.5888, -100.3899),
