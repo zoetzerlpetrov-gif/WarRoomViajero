@@ -757,8 +757,10 @@ def fetch_space():
     try:
         kp = json.loads(http_get("https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json"))
         if isinstance(kp, list) and len(kp) > 1:
-            last = kp[-1]
-            out["kp"] = {"value": float(last[1]), "time": last[0]}
+            recent = [row for row in kp[1:] if row[1] not in ('', None)]
+            if recent:
+                best = max(recent[-12:], key=lambda r: float(r[1]))
+                out["kp"] = {"value": float(best[1]), "time": best[0]}
     except Exception as e:
         print(f"  [espacial] kp fallo: {e}")
 
