@@ -1014,66 +1014,100 @@ function spaceThreats(sp){
 // Referencia: NOAA Space Weather Prediction Center, "Aurora Oval Viewer".
 function drawAuroraOval(sp){
   G.aurora.clearLayers();
-  const kpRaw = sp && sp.kp ? sp.kp.value : (sp && sp.G ? sp.G.scale * 1.5 : 0);
-  const kp = Math.max(0, Math.min(9, kpRaw));
-
-  // Borde ecuatorial estimado (grados de latitud)
-  const auroraLat = 67 - kp * 2.5;
-  // Distancia en km desde el polo al borde ecuatorial
-  const distKm = (90 - auroraLat) * 111.2;
-
-  // Color y opacidad según intensidad Kp
-  const col = kp >= 7 ? '#ff6644' : kp >= 5 ? '#ffcc44' : kp >= 3 ? '#44ff88' : '#44cc88';
-  const fillOp = Math.min(0.22, 0.05 + kp * 0.025);
-  const lineOp = Math.min(0.8, 0.3 + kp * 0.06);
-  const dashArr = kp >= 5 ? null : '6 4';
-
-  // Oval norte
-  L.circle([90, 0], {
-    radius: distKm * 1000,
-    color: col, weight: 2, opacity: lineOp, dashArray: dashArr,
-    fillColor: col, fillOpacity: fillOp, interactive: false,
-  }).addTo(G.aurora);
-
-  // Oval sur (auroras australes)
-  L.circle([-90, 0], {
-    radius: distKm * 1000,
-    color: col, weight: 2, opacity: lineOp, dashArray: dashArr,
-    fillColor: col, fillOpacity: fillOp, interactive: false,
-  }).addTo(G.aurora);
-
-  // Marcador interactivo en el borde norte si Kp es notable (>=3)
-  if(kp >= 3){
-    const popupKp = kp.toFixed(1);
-    const nivel = kp>=7?'Extrema (rara)':kp>=5?'Fuerte':kp>=3?'Moderada':'Menor';
-    const mk = L.marker([auroraLat, -30], {icon:L.divIcon({className:'',
-      html:`<div style="font-size:24px;line-height:1;filter:drop-shadow(0 0 8px ${col})">🌌</div>`,
-      iconSize:[28,28], iconAnchor:[14,28]})});
-    mk.bindPopup(`<div class="pp">
-      <span class="ptag" style="background:${col}">🌌 AURORA BOREAL · Kp ${popupKp}</span>
-      <h3>Aurora boreal / Tormenta geomagnética</h3>
-      <div><span class="k">Latitud mínima de visibilidad:</span> <b>~${Math.round(auroraLat)}°N / ${Math.round(auroraLat)}°S</b></div>
-      <div><span class="k">Intensidad Kp:</span> <b>${popupKp} / 9 · ${nivel}</b></div>
-      <div><span class="k">Escala geomagnética NOAA:</span> <b>G${sp&&sp.G?sp.G.scale:0}</b></div>
-      <div class="cnote" style="margin-top:5px">El óvalo verde en el mapa muestra la zona estimada donde la aurora podría verse esta noche con cielo despejado y sin contaminación lumínica. A mayor Kp, más al sur (o norte) llega la aurora. No es una predicción oficial — consulta NOAA SWPC.</div>
-      <div style="margin-top:6px"><a href="https://www.swpc.noaa.gov/products/aurora-30-minute-forecast" target="_blank" rel="noopener">Pronóstico oficial NOAA ↗</a></div>
-    </div>`);
+  var kpRaw = sp && sp.kp ? sp.kp.value : (sp && sp.G ? sp.G.scale * 1.5 : 0);
+  var currentKp = Math.max(0, Math.min(9, kpRaw));
+  var BANDS = [
+    {kp:9, col:'#ff3322', g:'G5',     label:'Kp 9 · G5',    efecto:'Apagones de radio totales. Daños posibles en redes eléctricas.'},
+    {kp:7, col:'#ff8822', g:'G3/G4',  label:'Kp 7 · G4',    efecto:'Interferencia severa de radio HF. Satélites afectados.'},
+    {kp:5, col:'#ffcc44', g:'G1/G2',  label:'Kp 5 · G1',    efecto:'Variaciones en redes eléctricas. GPS degradado ~20 m.'},
+    {kp:3, col:'#44ff88', g:'sub-G1', label:'Kp 3',          efecto:'Aurora visible en zonas polares y subpolares.'},
+    {kp:1, col:'#1a9954', g:'—',      label:'Kp 1',          efecto:'Aurora sólo en latitudes árticas/antárticas.'},
+  ];
+  function auroraLatForKp(k){ return 67 - k * 2.5; }
+  var highestActive = null;
+  for(var bi=0;bi<BANDS.length;bi++){ if(currentKp >= BANDS[bi].kp){ highestActive = BANDS[bi]; break; } }
+  // Dibujar de menor a mayor Kp (para que los más activos queden arriba)
+  var bandsRev = BANDS.slice().reverse();
+  bandsRev.forEach(function(band){
+    var aLat = auroraLatForKp(band.kp);
+    var distKm = (90 - aLat) * 111.2;
+    var active = currentKp >= band.kp;
+    var isBoundary = highestActive && band.kp === highestActive.kp;
+    var lineOp = isBoundary ? 0.92 : (active ? 0.55 : 0.18);
+    var fillOp = isBoundary ? 0.13 : (active ? 0.05 : 0.02);
+    var lw = isBoundary ? 2.5 : (active ? 1.5 : 0.8);
+    var dash = isBoundary ? null : (active ? '5 4' : '3 8');
+    // Casquetes polares (visibles si el mapa llega a esas latitudes)
+    [90, -90].forEach(function(pole){
+      L.circle([pole, 0], {
+        radius: distKm * 1000,
+        color: band.col, weight: lw, opacity: lineOp, dashArray: dash,
+        fillColor: band.col, fillOpacity: fillOp, interactive: false
+      }).addTo(G.aurora);
+    });
+    // Líneas de latitud cruzando todo el mapa (visibles desde cualquier posición)
+    var ptsN = [], ptsS = [];
+    for(var lon = -180; lon <= 180; lon += 3){
+      ptsN.push([aLat, lon]);
+      ptsS.push([-aLat, lon]);
+    }
+    L.polyline(ptsN, {
+      color: band.col, weight: isBoundary ? 2.5 : (active ? 1.2 : 0.7),
+      opacity: lineOp, dashArray: dash, interactive: false
+    }).addTo(G.aurora);
+    L.polyline(ptsS, {
+      color: band.col, weight: isBoundary ? 1.8 : (active ? 0.9 : 0.5),
+      opacity: lineOp * 0.7, dashArray: dash, interactive: false
+    }).addTo(G.aurora);
+    // Etiqueta en el borde de la latitud (visible desde México ~23°N)
+    if(active || band.kp <= 3){
+      var ic = L.divIcon({
+        className:'',
+        html:'<div style="font-size:9px;font-family:var(--mono);letter-spacing:.5px;'
+          +'color:'+band.col+';background:rgba(7,11,10,.82);'
+          +'border:1px solid '+band.col+';border-radius:2px;padding:1px 5px;white-space:nowrap;'
+          +(isBoundary?'font-weight:700;box-shadow:0 0 5px '+band.col+';':'')
+          +'">'+( isBoundary?'▶ ':'')+'~'+Math.round(aLat)+'°N · '+band.label+(isBoundary?' ← activo':'')+'</div>',
+        iconSize:[160,16], iconAnchor:[0,8]
+      });
+      var lm = L.marker([aLat, -18], {icon:ic});
+      lm.bindPopup('<div class="pp">'
+        +'<span class="ptag" style="background:'+band.col+'">'+band.label+'</span>'
+        +'<h3>Zona de aurora · Kp ≥ '+band.kp+'</h3>'
+        +'<div><span class="k">Lat. mínima norte:</span> <b>~'+Math.round(aLat)+'°N</b></div>'
+        +'<div><span class="k">Lat. mínima sur:</span> <b>~'+Math.round(aLat)+'°S</b></div>'
+        +'<div><span class="k">Kp actual:</span> <b>'+currentKp.toFixed(1)+(isBoundary?' ← borde activo':active?' ← zona activa':' (referencia)')+'</b></div>'
+        +'<div class="cnote" style="margin-top:5px">'+band.efecto+'</div>'
+        +'</div>');
+      lm.addTo(G.aurora);
+    }
+  });
+  // Marcador principal con popup detallado
+  var activeBand = highestActive || BANDS[BANDS.length-1];
+  var aLat = auroraLatForKp(currentKp);
+  var col = activeBand.col;
+  var nivel = activeBand.label;
+  if(currentKp >= 1){
+    var sz = currentKp >= 5 ? 24 : 18;
+    var mk = L.marker([aLat, -30], {
+      icon: L.divIcon({className:'',
+        html:'<div style="font-size:'+sz+'px;line-height:1;filter:drop-shadow(0 0 '+(currentKp>=5?8:4)+'px '+col+')">🌌</div>',
+        iconSize:[sz+4,sz+4], iconAnchor:[sz/2+2,sz+4]
+      })
+    });
+    mk.bindPopup('<div class="pp">'
+      +'<span class="ptag" style="background:'+col+'">🌌 AURORA · Kp '+currentKp.toFixed(1)+'</span>'
+      +'<h3>Tormenta geomagnética · '+nivel+'</h3>'
+      +'<div><span class="k">Kp actual:</span> <b>'+currentKp.toFixed(1)+' / 9</b></div>'
+      +'<div><span class="k">Escala NOAA:</span> <b>'+activeBand.g+'</b></div>'
+      +'<div><span class="k">Lat. mín. aurora (N):</span> <b>~'+Math.round(aLat)+'°N</b></div>'
+      +'<div><span class="k">Lat. mín. aurora (S):</span> <b>~'+Math.round(aLat)+'°S</b></div>'
+      +'<div class="cnote" style="margin-top:5px">Las líneas en el mapa muestran hasta dónde llegaría la aurora a cada nivel de Kp. '
+      +'La línea más brillante marca el borde actual. A mayor Kp, más al sur (o norte) puede verse la aurora.</div>'
+      +'<div style="margin-top:6px"><a href="https://www.swpc.noaa.gov/products/aurora-30-minute-forecast" target="_blank" rel="noopener">Pronóstico oficial NOAA ↗</a></div>'
+      +'</div>');
     mk.addTo(G.aurora);
-    FEATS.aurora.push({lat:auroraLat, lon:-30, props:{kp, nivel}, marker:mk});
-  }
-
-  // Si Kp bajo o cero: mostrar el oval pero sin marcador (aurora sólo polar)
-  if(kp < 3 && kp >= 0){
-    const mk2 = L.marker([auroraLat, 0], {icon:L.divIcon({className:'',
-      html:`<div style="font-size:14px;line-height:1;opacity:.7">🌌</div>`,
-      iconSize:[16,16], iconAnchor:[8,8]})});
-    mk2.bindPopup(`<div class="pp">
-      <span class="ptag" style="background:${col}">AURORA POLAR · Kp ${kp.toFixed(1)}</span>
-      <h3>Aurora boreal (baja actividad)</h3>
-      <div><span class="k">Visible sólo arriba de:</span> <b>~${Math.round(auroraLat)}°N</b></div>
-      <div class="cnote">Actividad geomagnética baja. La aurora es visible principalmente en zonas árticas y subárticas en condiciones ideales.</div>
-    </div>`);
-    mk2.addTo(G.aurora);
+    FEATS.aurora.push({lat:aLat, lon:-30, props:{kp:currentKp, nivel:nivel}, marker:mk});
   }
 }
 
