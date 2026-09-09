@@ -764,10 +764,10 @@ def fetch_space():
     except Exception as e:
         print(f"  [espacial] kp fallo: {e}")
     # Fallback: si Kp fallo pero G-scale > 0, derivar Kp minimo equivalente
-  if out["kp"] is None and out["G"]["scale"] > 0:
-    g = out["G"]["scale"]
-    kp_equiv = {1: 5.0, 2: 6.0, 3: 7.0, 4: 8.0, 5: 9.0}.get(g, 5.0)
-    out["kp"] = {"value": kp_equiv, "time": "derived_from_G", "derived": True}
+    if out["kp"] is None and out["G"]["scale"] > 0:
+        g = out["G"]["scale"]
+        kp_equiv = {1: 5.0, 2: 6.0, 3: 7.0, 4: 8.0, 5: 9.0}.get(g, 5.0)
+        out["kp"] = {"value": kp_equiv, "time": "derived_from_G", "derived": True}
   # Fallback inverso: si Kp >= 5 pero G reporto 0, derivar G desde Kp
     if out["kp"] is not None and out["G"]["scale"] == 0:
       kv = out["kp"]["value"]
