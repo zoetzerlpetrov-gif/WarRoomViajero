@@ -1,4 +1,4 @@
-h#!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 CLIMA TACTICO - Obtencion de datos para capas "horneadas" (2x/dia).
 
