@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+h#!/usr/bin/env python3
 """
 CLIMA TACTICO - Obtencion de datos para capas "horneadas" (2x/dia).
 
@@ -757,12 +757,12 @@ def fetch_space():
     try:
         kp = json.loads(http_get("https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json"))
         if isinstance(kp, list) and len(kp) > 1:
-            recent = [row for row in kp[1:] if row[1] not in ('', None)]
+            recent = [r for r in (kp if isinstance(kp[0], dict) else kp[1:]) if (r.get("Kp") if isinstance(r, dict) else r[1]) not in ('', None)]
             if recent:
-                best = max(recent[-48:], key=lambda r: float(r[1]))
-                out["kp"] = {"value": float(best[1]), "time": best[0]}
+                best = max(recent[-48:], key=lambda r: float(r["Kp"] if isinstance(r, dict) else r[1]))
+                out["kp"] = {"value": float(best["Kp"] if isinstance(best, dict) else best[1]), "time": (best["time_tag"] if isinstance(best, dict) else best[0])}
     except Exception as e:
-        print(f"  [espacial] kp fallo: {e}")
+        print(f"  [espacial] kp fallo: {type(e).__name__}: {e}")
     # Fallback: si Kp fallo pero G-scale > 0, derivar Kp minimo equivalente
     if out["kp"] is None and out["G"]["scale"] > 0:
         g = out["G"]["scale"]
@@ -858,7 +858,7 @@ def fetch_security():
     fetch_security_feed()
     return len(feats)
 
-
+h
 MX_STATE_CENTROIDS = {
     "Aguascalientes": (21.8853, -102.2916),
     "Baja California Sur": (26.0444, -111.6661),
