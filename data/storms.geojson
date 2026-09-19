@@ -1,1 +1,1 @@
-{"type": "FeatureCollection", "metadata": {"generated": "2026-09-19T02:42:40Z", "count": 0}, "features": []}
+{"type": "FeatureCollection", "metadata": {"generated": "2026-09-19T15:11:08Z", "count": 1}, "features": [{"type": "Feature", "geometry": {"type": "Point", "coordinates": [-33.6, 32.6]}, "properties": {"layer": "storm", "name": "Six", "classification": "TD", "class_label": "Depresion tropical", "intensity_kt": "30", "pressure_mb": "1009", "movement": "360 2 kt", "basin": "al", "last_update": "2026-09-19T15:00:00.000Z"}}]}
