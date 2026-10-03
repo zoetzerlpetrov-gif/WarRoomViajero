@@ -1,70 +1,70 @@
 {
-  "generated": "2026-10-02T17:15:44Z",
+  "generated": "2026-10-03T03:22:00Z",
   "sources": {
     "fires": {
-      "count": 1500,
-      "updated": "2026-10-02T17:15:45Z",
-      "seconds": 0.8
+      "count": 0,
+      "updated": "2026-10-03T03:22:00Z",
+      "seconds": 0.3
     },
     "storms": {
       "count": 2,
-      "updated": "2026-10-02T17:15:45Z",
-      "seconds": 0.2
+      "updated": "2026-10-03T03:22:00Z",
+      "seconds": 0.1
     },
     "storm_tracks": {
-      "count": 99,
-      "updated": "2026-10-02T17:15:46Z",
-      "seconds": 0.9
+      "count": 100,
+      "updated": "2026-10-03T03:22:01Z",
+      "seconds": 0.7
     },
     "gdacs": {
       "count": 0,
-      "updated": "2026-10-02T17:15:47Z",
-      "seconds": 0.5
+      "updated": "2026-10-03T03:22:02Z",
+      "seconds": 0.9
     },
     "forecast": {
       "count": 533,
-      "updated": "2026-10-02T17:15:48Z",
-      "seconds": 1.6
+      "updated": "2026-10-03T03:22:04Z",
+      "seconds": 1.9
     },
     "airquality": {
       "count": 533,
-      "updated": "2026-10-02T17:15:50Z",
-      "seconds": 1.6
+      "updated": "2026-10-03T03:22:06Z",
+      "seconds": 1.7
     },
     "space": {
       "count": 0,
-      "updated": "2026-10-02T17:15:50Z",
-      "seconds": 0.2
+      "updated": "2026-10-03T03:22:06Z",
+      "seconds": 0.3
     },
     "security": {
       "count": 0,
-      "updated": "2026-10-02T17:16:12Z",
-      "seconds": 22.5
+      "updated": "2026-10-03T03:22:24Z",
+      "seconds": 18.6
     },
     "aviation_incidents": {
       "count": 60,
-      "updated": "2026-10-02T17:16:15Z",
-      "seconds": 2.4
+      "updated": "2026-10-03T03:22:26Z",
+      "seconds": 1.8
     },
     "severe_weather": {
-      "count": 21,
-      "updated": "2026-10-02T17:16:37Z",
-      "seconds": 21.9
+      "count": 23,
+      "updated": "2026-10-03T03:22:43Z",
+      "seconds": 17.0
     },
     "mass_movements": {
       "count": 0,
-      "updated": "2026-10-02T17:18:04Z",
-      "seconds": 87.6
+      "updated": "2026-10-03T03:23:49Z",
+      "seconds": 66.0
     },
     "advisories": {
       "count": 0,
-      "updated": "2026-10-02T17:18:05Z",
-      "seconds": 0.4
+      "updated": "2026-10-03T03:23:50Z",
+      "seconds": 0.7
     },
     "volcanoes": {
       "count": 31,
-      "updated": "2026-10-02T17:18:05Z",
-      "seconds": 0.7
+      "updated": "2026-10-03T03:23:50Z",
+      "seconds": 0.1
     }
   }
 }
