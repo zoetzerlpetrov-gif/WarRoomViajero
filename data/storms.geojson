@@ -1,1 +1,1 @@
-{"type": "FeatureCollection", "metadata": {"generated": "2026-10-21T02:55:06Z", "count": 0}, "features": []}
+{"type": "FeatureCollection", "metadata": {"generated": "2026-10-21T16:26:38Z", "count": 1}, "features": [{"type": "Feature", "geometry": {"type": "Point", "coordinates": [-99.3, 9.5]}, "properties": {"layer": "storm", "name": "Twenty-Two-E", "classification": "TD", "class_label": "Depresion tropical", "intensity_kt": "30", "pressure_mb": "1005", "movement": "265 7 kt", "basin": "ep", "last_update": "2026-10-21T15:00:00.000Z"}}]}
