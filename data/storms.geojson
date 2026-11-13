@@ -1,1 +1,1 @@
-{"type": "FeatureCollection", "metadata": {"generated": "2026-11-12T19:25:32Z", "count": 1}, "features": [{"type": "Feature", "geometry": {"type": "Point", "coordinates": [-173.4, 9.8]}, "properties": {"layer": "storm", "name": "Pena", "classification": "PTC", "class_label": "Ciclon potencial", "intensity_kt": "30", "pressure_mb": "1006", "movement": "270 18 kt", "basin": "cp", "last_update": "2026-11-12T15:00:00.000Z"}}]}
+{"type": "FeatureCollection", "metadata": {"generated": "2026-11-13T04:38:35Z", "count": 0}, "features": []}
